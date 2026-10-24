@@ -177,12 +177,12 @@ html[data-glass="true"] .tray, html[data-glass="true"] .rem-pop {
   border-radius: calc(var(--radius) * 1.5);
 }
 .cog {
-  position: fixed; right: 12px; bottom: 12px; z-index: 6; width: 34px; height: 34px;
+  position: fixed; left: 12px; bottom: 12px; z-index: 6; width: 34px; height: 34px;
   display: grid; place-items: center; font-size: 17px; line-height: 1;
   border: 1px solid var(--border); border-radius: 50%; background: var(--panel-bg); color: var(--fg);
   box-shadow: var(--shadow); -webkit-app-region: no-drag;
 }
-.settings { position: fixed; top: auto; right: 12px; bottom: 56px; width: 300px; padding: 14px; display: grid; gap: 14px; font-size: 0.87em; }
+.settings { position: fixed; top: auto; left: 12px; right: auto; bottom: 56px; width: 300px; padding: 14px; display: grid; gap: 14px; font-size: 0.87em; }
 .set-group { display: grid; gap: 8px; }
 .set-title { font-weight: 600; color: var(--fg); font-size: 0.9em; }
 .settings label { display: grid; gap: 4px; color: var(--muted); }
@@ -334,7 +334,7 @@ html[data-glass="true"] .tray, html[data-glass="true"] .rem-pop {
 .tray-open, .tray-done { padding: 3px 8px; border: 1px solid var(--border); }
 .tray-clear { width: 100%; padding: 8px; color: var(--muted); border-top: 1px solid var(--border); }
 
-.toasts { position: fixed; left: 14px; bottom: 14px; z-index: 25; display: grid; gap: 8px; }
+.toasts { position: fixed; left: 14px; bottom: 56px; z-index: 25; display: grid; gap: 8px; }
 .toast {
   display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px;
   width: 300px; padding: 10px 12px; border-radius: calc(var(--radius) * 1.4); font-size: 0.87em;
