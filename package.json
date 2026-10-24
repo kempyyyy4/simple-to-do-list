@@ -1,0 +1,13 @@
+{
+  "name": "simple-to-do-list",
+  "version": "1.0.0",
+  "description": "A quick, nested to-do list for jotting down ideas. Runs in a browser or as a small desktop window.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.2.0"
+  }
+}
