@@ -149,11 +149,17 @@
     const unread = inbox.filter(i => !i.read).length;
     const bar = el('button', 'tray-bar');
     bar.type = 'button';
-    bar.append(el('span', '', 'Inbox'), el('span', `badge${unread ? ' on' : ''}`, String(unread || inbox.length || '')));
+    bar.append(el('span', '', 'Inbox'), el('span', `badge${unread ? ' on' : ''}`, unread ? String(unread) : ''));
     bar.onclick = () => {
       trayOpen = !trayOpen;
       if (trayOpen) handlers.markAllRead();
       renderTray(inbox, handlers);
+      if (trayOpen) {
+        tray.querySelector('.tray-body').animate(
+          [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }],
+          { duration: 360, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+        );
+      }
     };
 
     const items = el('div', 'tray-items');

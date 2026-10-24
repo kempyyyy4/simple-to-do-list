@@ -184,6 +184,8 @@
   window.addEventListener('pointerup', () => window.Todo.applyScale());
 
   function open() {
+    // Built-in themes can't be edited, so editing one starts a copy of it.
+    if (current().builtin) api.addCustom(copyOf(current(), `${current().name} copy`));
     panel.hidden = false;
     render();
     const M = api.motion();

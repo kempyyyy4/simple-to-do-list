@@ -1,6 +1,6 @@
-// A floating notepad for one task. Blocks can be text, headings, to-dos, trackers, charts or dividers.
+// A floating notepad for one task. Blocks are headings, text and to-dos.
 // The note is stored on the task as node.note = { blocks: [...] }.
-// Drag the title bar outside the app window and the note pops out into its own window.
+// Drag the title bar outside the app window and the note tears off into its own window.
 (() => {
   'use strict';
 
@@ -8,44 +8,21 @@
   const body = document.getElementById('noteBody');
   const titleEl = document.getElementById('noteTitle');
   const popBtn = document.getElementById('notePop');
+  const pinBtn = document.getElementById('notePin');
   const closeBtn = document.getElementById('noteClose');
+
+  const KINDS = ['text', 'heading', 'todo'];
 
   let nodeId = null;
   let opts = null;
   let node = null;
+  let pinned = false;
 
   const uid = () => Math.random().toString(36).slice(2, 10);
-  const motion = () => (opts && opts.motion ? opts.motion() : { dur: 0, ease: 'linear' });
 
   function makeBlock(type) {
     const base = { id: uid(), type };
-    switch (type) {
-      case 'text':
-      case 'heading':
-        return { ...base, text: '' };
-      case 'todo':
-        return { ...base, text: '', checked: false };
-      case 'tracker':
-        return { ...base, label: 'Progress', value: 0, goal: 10 };
-      case 'chart':
-        return { ...base, title: 'Chart', values: '3, 5, 8, 4' };
-      default:
-        return base;
-    }
-  }
-
-  // "Mon 3, Tue 5" or "3, 5, 8". Anything that isn't a number becomes a zero.
-  function parseValues(str) {
-    return str.split(',').map(s => s.trim()).filter(Boolean).map((s, i) => {
-      const m = s.match(/^(.*?)[\s:]*(-?\d+(?:\.\d+)?)$/);
-      return m ? { label: m[1].trim() || String(i + 1), value: Number(m[2]) } : { label: s, value: 0 };
-    });
-  }
-
-  function el(tag, text) {
-    const n = document.createElement(tag);
-    n.textContent = text;
-    return n;
+    return type === 'todo' ? { ...base, text: '', checked: false } : { ...base, text: '' };
   }
 
   function focusBlock(id) {
@@ -96,6 +73,7 @@
     return div;
   }
 
+  // Heading and text share one editable block. The heading just looks bigger.
   function textBlock(block, index, heading) {
     const div = document.createElement('div');
     div.className = `nb-focus ${heading ? 'nb-heading' : 'nb-text'}`;
@@ -142,133 +120,10 @@
     return wrap(block, index, row);
   }
 
-  function trackerBlock(block, index) {
-    const box = document.createElement('div');
-    box.className = 'nb-card';
-    const label = document.createElement('input');
-    label.type = 'text';
-    label.className = 'nb-focus nb-input nb-card-title';
-    label.value = block.label;
-    label.oninput = () => { block.label = label.value; changed(); };
-
-    const bar = document.createElement('div');
-    bar.className = 'nb-bar';
-    const fill = document.createElement('i');
-    bar.append(fill);
-
-    const controls = document.createElement('div');
-    controls.className = 'nb-card-row';
-    const value = document.createElement('input');
-    value.type = 'number';
-    value.className = 'nb-num';
-    value.value = block.value;
-    const goal = document.createElement('input');
-    goal.type = 'number';
-    goal.className = 'nb-num';
-    goal.value = block.goal;
-    goal.min = '1';
-    const readout = document.createElement('span');
-    readout.className = 'nb-readout';
-
-    const update = () => {
-      const pct = block.goal > 0 ? Math.min(100, (block.value / block.goal) * 100) : 0;
-      fill.style.width = `${pct}%`;
-      readout.textContent = `${Math.round(pct)}%`;
-    };
-    const setValue = v => {
-      block.value = v;
-      value.value = v;
-      changed();
-      update();
-    };
-    const minus = document.createElement('button');
-    minus.type = 'button';
-    minus.textContent = '−';
-    minus.onclick = () => setValue(Math.max(0, Math.round((block.value - 1) * 100) / 100));
-    const plus = document.createElement('button');
-    plus.type = 'button';
-    plus.textContent = '+';
-    plus.onclick = () => setValue(Math.round((block.value + 1) * 100) / 100);
-
-    value.oninput = () => { block.value = Number(value.value) || 0; changed(); update(); };
-    goal.oninput = () => { block.goal = Number(goal.value) || 1; changed(); update(); };
-
-    controls.append(minus, value, el('span', '/'), goal, plus, readout);
-    box.append(label, bar, controls);
-    update();
-    return wrap(block, index, box);
-  }
-
-  function chartBlock(block, index) {
-    const box = document.createElement('div');
-    box.className = 'nb-card';
-    const title = document.createElement('input');
-    title.type = 'text';
-    title.className = 'nb-focus nb-input nb-card-title';
-    title.value = block.title;
-    title.oninput = () => { block.title = title.value; changed(); };
-
-    const values = document.createElement('input');
-    values.type = 'text';
-    values.className = 'nb-input nb-small';
-    values.value = block.values;
-    values.placeholder = 'Mon 3, Tue 5, Wed 8';
-    const svgWrap = document.createElement('div');
-    const redraw = () => svgWrap.replaceChildren(barChart(parseValues(block.values)));
-    values.oninput = () => { block.values = values.value; changed(); redraw(); };
-    redraw();
-
-    box.append(title, svgWrap, values);
-    return wrap(block, index, box);
-  }
-
-  function barChart(data) {
-    const NS = 'http://www.w3.org/2000/svg';
-    const W = Math.max(220, data.length * 44);
-    const H = 130;
-    const svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.setAttribute('preserveAspectRatio', 'none');
-    const max = Math.max(1, ...data.map(d => Math.abs(d.value)));
-    const slot = W / Math.max(1, data.length);
-    const barW = Math.min(28, slot * 0.6);
-    const M = motion();
-
-    data.forEach((d, i) => {
-      const h = (Math.abs(d.value) / max) * (H - 30);
-      const x = i * slot + (slot - barW) / 2;
-      const rect = document.createElementNS(NS, 'rect');
-      rect.setAttribute('x', x);
-      rect.setAttribute('y', H - 18 - h);
-      rect.setAttribute('width', barW);
-      rect.setAttribute('height', h);
-      rect.setAttribute('rx', 3);
-      rect.setAttribute('fill', 'currentColor');
-      rect.style.transformBox = 'fill-box';
-      rect.style.transformOrigin = 'bottom';
-      if (M.dur) rect.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: M.dur * 1.4, easing: M.ease, delay: i * 40 });
-      svg.append(rect);
-
-      const label = document.createElementNS(NS, 'text');
-      label.setAttribute('x', i * slot + slot / 2);
-      label.setAttribute('y', H - 4);
-      label.setAttribute('text-anchor', 'middle');
-      label.setAttribute('class', 'lbl');
-      label.textContent = d.label.slice(0, 6);
-      svg.append(label);
-    });
-    return svg;
-  }
-
   function blockEl(block, index) {
-    switch (block.type) {
-      case 'heading': return textBlock(block, index, true);
-      case 'todo': return todoBlock(block, index);
-      case 'tracker': return trackerBlock(block, index);
-      case 'chart': return chartBlock(block, index);
-      case 'divider': return wrap(block, index, el('hr', ''));
-      default: return textBlock(block, index, false);
-    }
+    if (block.type === 'heading') return textBlock(block, index, true);
+    if (block.type === 'todo') return todoBlock(block, index);
+    return textBlock(block, index, false);
   }
 
   function render() {
@@ -277,11 +132,13 @@
   }
 
   // Looks the task up again. Needed after another window changes the saved data.
+  // Blocks from older notes (trackers, charts, dividers) are dropped.
   function refresh() {
     if (!nodeId) return;
     node = opts.getNode(nodeId);
     if (!node) return close();
     node.note = node.note || { blocks: [] };
+    node.note.blocks = node.note.blocks.filter(b => KINDS.includes(b.type));
     if (node.note.blocks.length === 0) node.note.blocks.push(makeBlock('text'));
     titleEl.textContent = node.text || 'Untitled';
     render();
@@ -291,20 +148,24 @@
     nodeId = id;
     opts = options;
     popBtn.hidden = Boolean(opts.detached);
+    // Pinning only makes sense for a note in its own window in the desktop app.
+    const canPin = Boolean(window.desktop && opts.detached);
+    pinBtn.hidden = !canPin;
+    pinned = false;
+    pinBtn.classList.remove('on');
     win.style.visibility = '';
     win.classList.toggle('detached-note', Boolean(opts.detached));
     refresh();
     if (!node) return;
     win.hidden = false;
-    const M = motion();
+    const M = opts.motion();
     if (M.dur) {
       win.animate(
         [{ opacity: 0, transform: 'translateY(16px) scale(0.96)' }, { opacity: 1, transform: 'none' }],
         { duration: M.dur, easing: M.ease },
       );
     }
-    if (!opts.detached) return;
-    focusBlock(node.note.blocks[0].id);
+    if (opts.detached) focusBlock(node.note.blocks[0].id);
   }
 
   function close() {
@@ -377,6 +238,14 @@
     const r = win.getBoundingClientRect();
     popOut(window.screenX + r.left, window.screenY + r.top);
   };
+
+  // Keeps this note window above other windows, the same as the Pin button on the main list.
+  pinBtn.onclick = () => {
+    pinned = !pinned;
+    window.desktop.setAlwaysOnTop(pinned);
+    pinBtn.classList.toggle('on', pinned);
+  };
+
   closeBtn.onclick = close;
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !win.hidden) close();

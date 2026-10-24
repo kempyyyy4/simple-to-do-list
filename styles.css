@@ -195,7 +195,7 @@ html[data-glass="true"] .tray, html[data-glass="true"] .rem-pop {
 }
 .settings .actions input[type="file"] { display: none; }
 
-.cust { width: 340px; padding: 14px; display: grid; gap: 14px; align-content: start; font-size: 0.87em; }
+.cust { width: 340px; padding: 14px; display: grid; gap: 14px; align-content: start; font-size: 0.87em; background: var(--panel); }
 .cust-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .cust-head strong { font-size: 1em; }
 .cust-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -299,23 +299,24 @@ html[data-glass="true"] .tray, html[data-glass="true"] .rem-pop {
 .rem-empty { color: var(--muted); }
 
 .tray {
-  position: fixed; right: 14px; bottom: 14px; width: 290px; z-index: 12;
+  position: fixed; right: 14px; bottom: 14px; width: max-content; z-index: 12;
   border-radius: calc(var(--radius) * 1.4); overflow: hidden; font-size: 0.87em;
 }
 .tray-bar {
   width: 100%; display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 12px; font-weight: 600; color: var(--fg); border-radius: 0;
+  padding: 6px 12px; font-weight: 600; color: var(--fg); border-radius: 0; gap: 8px;
 }
+.badge:empty { display: none; }
 .badge {
   min-width: 20px; padding: 1px 6px; border-radius: 999px; text-align: center; font-size: 0.85em;
   background: var(--hover); color: var(--muted);
 }
 .badge.on { background: var(--accent); color: var(--panel); }
-.tray-body {
-  display: grid; grid-template-rows: 0fr;
-  transition: grid-template-rows calc(0.5s * var(--k)) cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.tray.open .tray-body { grid-template-rows: 1fr; }
+/* Collapsed, only the label shows. Opening animates the list in from reminders.js. */
+.tray-body { display: block; }
+.tray:not(.open) .tray-body { display: none; }
+.tray.open { width: 290px; }
+
 .tray-items { min-height: 0; overflow: hidden; }
 .tray-empty { margin: 0; padding: 4px 12px 12px; color: var(--muted); }
 .tray-item {
