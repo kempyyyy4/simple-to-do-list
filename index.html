@@ -1,114 +1,53 @@
 <!doctype html>
-<html lang="en" data-theme="light" data-font="sans">
+<html lang="en" data-theme="sepia" data-font="mono" data-anim="chess">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>To-do</title>
-<style>
-  html[data-theme="light"] {
-    --bg: #fbfbfa; --panel: #ffffff; --fg: #37352f; --muted: #9b9a97;
-    --border: #e9e9e7; --hover: #f1f1ef;
-  }
-  html[data-theme="dark"] {
-    --bg: #191919; --panel: #202020; --fg: #e6e6e4; --muted: #6b6b68;
-    --border: #2f2f2f; --hover: #2a2a2a;
-  }
-  html[data-theme="sepia"] {
-    --bg: #f4ecd8; --panel: #f8f1e1; --fg: #5b4636; --muted: #a08c76;
-    --border: #e3d6bb; --hover: #ece2cb;
-  }
-  html[data-font="sans"] { --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  html[data-font="serif"] { --font: Georgia, "Times New Roman", serif; }
-  html[data-font="mono"] { --font: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
-
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    background: var(--bg); color: var(--fg); font-family: var(--font);
-    font-size: 15px; display: flex; flex-direction: column; overflow: hidden;
-  }
-  button, input, select { font: inherit; color: inherit; }
-  button { background: none; border: 0; cursor: pointer; border-radius: 4px; color: var(--muted); }
-  button:hover { background: var(--hover); color: var(--fg); }
-  [hidden] { display: none !important; }
-
-  header.top {
-    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
-    border-bottom: 1px solid var(--border); -webkit-app-region: drag;
-  }
-  header.top button, header.top input, header.top select,
-  main input, main button, .settings * { -webkit-app-region: no-drag; }
-  .crumbs { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; font-size: 13px; }
-  .crumbs button { padding: 2px 6px; color: var(--muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
-  .crumbs button.current { color: var(--fg); font-weight: 600; }
-  .crumbs .sep { color: var(--muted); }
-  .tools { display: flex; gap: 2px; }
-  .tools button { padding: 4px 8px; font-size: 13px; }
-
-  main { flex: 1; overflow-y: auto; padding: 18px 20px 40px; }
-  .page-title {
-    width: 100%; border: 0; outline: none; background: transparent;
-    font-size: 26px; font-weight: 700; padding: 4px 0 12px;
-  }
-  .add {
-    width: 100%; border: 1px solid var(--border); background: var(--panel);
-    border-radius: 6px; padding: 8px 10px; outline: none;
-  }
-  .add:focus, .text:focus { border-color: var(--accent, #2383e2); }
-  ul.list { list-style: none; margin: 12px 0 0; padding: 0; }
-  li.row {
-    display: flex; align-items: center; gap: 8px; padding: 4px 6px;
-    border-radius: 6px;
-  }
-  li.row:hover { background: var(--hover); }
-  li.row input[type="checkbox"] { margin: 0; width: 16px; height: 16px; accent-color: var(--accent, #2383e2); cursor: pointer; flex: none; }
-  .text {
-    flex: 1; min-width: 0; border: 1px solid transparent; background: transparent;
-    border-radius: 4px; padding: 4px 6px; outline: none;
-  }
-  li.row.done .text { color: var(--muted); text-decoration: line-through; }
-  .open { font-size: 12px; padding: 2px 6px; white-space: nowrap; }
-  .open .count { color: var(--muted); margin-right: 4px; }
-  .del { font-size: 16px; line-height: 1; padding: 2px 6px; opacity: 0; }
-  li.row:hover .del, li.row:focus-within .del { opacity: 1; }
-  .summary { color: var(--muted); font-size: 12px; margin-top: 16px; }
-  .empty { color: var(--muted); font-size: 14px; margin-top: 24px; }
-
-  .settings {
-    position: absolute; top: 48px; right: 10px; width: 260px; z-index: 5;
-    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    padding: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    display: grid; gap: 12px; font-size: 13px;
-  }
-  .settings label { display: grid; gap: 4px; color: var(--muted); }
-  .settings select, .settings input[type="color"] {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px;
-  }
-  .settings input[type="color"] { height: 30px; padding: 2px; width: 100%; }
-  .settings .actions { display: flex; gap: 8px; }
-  .settings .actions button, .settings .actions label {
-    flex: 1; border: 1px solid var(--border); padding: 6px; text-align: center; cursor: pointer; color: var(--fg);
-  }
-  .settings .actions input[type="file"] { display: none; }
-  body { position: relative; }
-</style>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div class="fx" aria-hidden="true"></div>
+
   <header class="top">
     <nav class="crumbs" id="crumbs"></nav>
     <div class="tools">
-      <button id="pinBtn" title="Keep on top" hidden>Pin</button>
-      <button id="settingsBtn" title="Settings">Settings</button>
-      <button id="closeBtn" title="Close" hidden>✕</button>
+      <button id="progressBtn" class="tool" title="Progress calendar">Progress</button>
+      <button id="pinBtn" class="tool" title="Keep on top" hidden>Pin</button>
+      <button id="settingsBtn" class="tool" title="Settings">Settings</button>
+      <button id="closeBtn" class="tool" title="Close" hidden>✕</button>
     </div>
   </header>
 
   <main>
-    <input id="pageTitle" class="page-title" placeholder="Untitled" hidden>
-    <input id="add" class="add" placeholder="Add a task and press Enter">
-    <ul id="list" class="list"></ul>
-    <p id="empty" class="empty" hidden>Nothing here yet.</p>
-    <p id="summary" class="summary"></p>
+    <section id="listView">
+      <input id="pageTitle" class="page-title" placeholder="Untitled" hidden>
+
+      <div class="composer">
+        <input id="add" class="add" placeholder="New task, Enter to add" autocomplete="off">
+        <div class="kind" role="group" aria-label="New item type">
+          <button class="active" data-kind="task">Task</button>
+          <button data-kind="folder">Folder</button>
+        </div>
+      </div>
+
+      <ul id="list" class="list"></ul>
+      <p id="empty" class="empty" hidden>Nothing here yet.</p>
+      <p id="summary" class="summary"></p>
+    </section>
+
+    <section id="progressView" class="progress" hidden>
+      <div class="progress-head">
+        <button id="prevMonth" class="tool" aria-label="Previous month">‹</button>
+        <h2 id="monthLabel"></h2>
+        <button id="nextMonth" class="tool" aria-label="Next month">›</button>
+        <button id="thisMonth" class="tool">Today</button>
+      </div>
+      <div id="gridWrap" class="grid-wrap">
+        <table id="grid" class="grid"></table>
+      </div>
+      <p id="trackEmpty" class="empty" hidden>No tracked tasks yet. Click ◎ on a task to track it day by day.</p>
+    </section>
   </main>
 
   <section id="settings" class="settings" hidden>
@@ -117,6 +56,9 @@
         <option value="light">Light</option>
         <option value="dark">Dark</option>
         <option value="sepia">Sepia</option>
+        <option value="midnight">Midnight</option>
+        <option value="forest">Forest</option>
+        <option value="cyberpunk">Cyberpunk</option>
       </select>
     </label>
     <label>Font
@@ -126,8 +68,19 @@
         <option value="mono">Mono</option>
       </select>
     </label>
+    <label>Animation
+      <select id="anim">
+        <option value="off">Off</option>
+        <option value="chess">Chess (smooth)</option>
+        <option value="retro">1964 (retro)</option>
+        <option value="arcade">Arcade (satisfying)</option>
+      </select>
+    </label>
     <label>Accent
-      <input id="accent" type="color">
+      <div class="accent-row">
+        <input id="accent" type="color">
+        <button id="accentReset">Reset</button>
+      </div>
     </label>
     <div class="actions">
       <button id="exportBtn">Export</button>
@@ -135,219 +88,6 @@
     </div>
   </section>
 
-<script>
-  const TREE_KEY = 'todo-tree-v1';
-  const SETTINGS_KEY = 'todo-settings-v1';
-  const DEFAULT_SETTINGS = { theme: 'light', font: 'sans', accent: '#2383e2' };
-
-  const $ = id => document.getElementById(id);
-  const uid = () => Math.random().toString(36).slice(2, 10);
-  const newNode = (text = '') => ({ id: uid(), text, done: false, children: [] });
-
-  function readJSON(key) {
-    try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
-  }
-  function writeJSON(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-  }
-
-  let root = readJSON(TREE_KEY) || { id: 'root', text: '', done: false, children: [] };
-  let settings = { ...DEFAULT_SETTINGS, ...readJSON(SETTINGS_KEY) };
-  let path = [];          // ids from the root down to the list being viewed
-  let focusId = null;     // row to focus after the next render
-
-  const save = () => writeJSON(TREE_KEY, root);
-
-  // Walks the saved path and returns the nodes from root to current.
-  // Stops early if a node in the path was deleted.
-  function trail() {
-    const nodes = [root];
-    for (const id of path) {
-      const next = nodes[nodes.length - 1].children.find(n => n.id === id);
-      if (!next) break;
-      nodes.push(next);
-    }
-    path = nodes.slice(1).map(n => n.id);
-    return nodes;
-  }
-
-  function renderCrumbs(nodes) {
-    const crumbs = $('crumbs');
-    crumbs.textContent = '';
-    nodes.forEach((node, i) => {
-      if (i > 0) {
-        const sep = document.createElement('span');
-        sep.className = 'sep';
-        sep.textContent = '/';
-        crumbs.append(sep);
-      }
-      const btn = document.createElement('button');
-      const isLast = i === nodes.length - 1;
-      btn.className = isLast ? 'current' : '';
-      btn.textContent = i === 0 ? 'All tasks' : (node.text || 'Untitled');
-      btn.onclick = () => { path = nodes.slice(1, i + 1).map(n => n.id); render(); };
-      crumbs.append(btn);
-    });
-  }
-
-  function buildRow(node, siblings, index) {
-    const li = document.createElement('li');
-    li.className = 'row' + (node.done ? ' done' : '');
-    li.dataset.id = node.id;
-
-    const check = document.createElement('input');
-    check.type = 'checkbox';
-    check.checked = node.done;
-    check.onchange = () => { node.done = check.checked; save(); render(); };
-
-    const text = document.createElement('input');
-    text.className = 'text';
-    text.value = node.text;
-    text.placeholder = 'Untitled';
-    text.oninput = () => { node.text = text.value; save(); };
-    text.onkeydown = e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const next = newNode();
-        siblings.splice(index + 1, 0, next);
-        focusId = next.id;
-        save();
-        render();
-      } else if (e.key === 'Backspace' && text.value === '') {
-        e.preventDefault();
-        focusId = siblings[index - 1]?.id || null;
-        siblings.splice(index, 1);
-        save();
-        render();
-      }
-    };
-
-    const open = document.createElement('button');
-    open.className = 'open';
-    open.title = 'Open sub-list';
-    const count = document.createElement('span');
-    count.className = 'count';
-    count.textContent = node.children.length || '';
-    open.append(count, '›');
-    open.onclick = () => { path.push(node.id); focusId = null; render(); };
-
-    const del = document.createElement('button');
-    del.className = 'del';
-    del.title = 'Delete';
-    del.textContent = '×';
-    del.onclick = () => { siblings.splice(index, 1); save(); render(); };
-
-    li.append(check, text, open, del);
-    return li;
-  }
-
-  function render() {
-    const nodes = trail();
-    const current = nodes[nodes.length - 1];
-    const isRoot = nodes.length === 1;
-
-    renderCrumbs(nodes);
-
-    const title = $('pageTitle');
-    title.hidden = isRoot;
-    if (document.activeElement !== title) title.value = current.text;
-
-    const list = $('list');
-    list.textContent = '';
-    current.children.forEach((node, i) => list.append(buildRow(node, current.children, i)));
-
-    $('empty').hidden = current.children.length > 0;
-
-    const done = current.children.filter(n => n.done).length;
-    $('summary').textContent = current.children.length
-      ? `${done} of ${current.children.length} done`
-      : '';
-
-    if (focusId) {
-      const input = list.querySelector(`[data-id="${focusId}"] .text`);
-      if (input) {
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-      }
-      focusId = null;
-    }
-  }
-
-  // Page title edits the node the user is currently inside.
-  $('pageTitle').oninput = e => {
-    const nodes = trail();
-    nodes.at(-1).text = e.target.value;
-    save();
-    renderCrumbs(nodes);
-  };
-
-  $('add').onkeydown = e => {
-    if (e.key !== 'Enter' || !e.target.value.trim()) return;
-    const current = trail().at(-1);
-    current.children.push(newNode(e.target.value.trim()));
-    e.target.value = '';
-    save();
-    render();
-  };
-
-  // Settings
-  function applySettings() {
-    const html = document.documentElement;
-    html.dataset.theme = settings.theme;
-    html.dataset.font = settings.font;
-    html.style.setProperty('--accent', settings.accent);
-    $('theme').value = settings.theme;
-    $('font').value = settings.font;
-    $('accent').value = settings.accent;
-    writeJSON(SETTINGS_KEY, settings);
-  }
-
-  $('settingsBtn').onclick = () => { $('settings').hidden = !$('settings').hidden; };
-  $('theme').onchange = e => { settings.theme = e.target.value; applySettings(); };
-  $('font').onchange = e => { settings.font = e.target.value; applySettings(); };
-  $('accent').oninput = e => { settings.accent = e.target.value; applySettings(); };
-
-  $('exportBtn').onclick = () => {
-    const blob = new Blob([JSON.stringify(root, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'todo-backup.json';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  };
-
-  $('importFile').onchange = async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      const data = JSON.parse(await file.text());
-      if (!Array.isArray(data.children)) throw new Error('Not a to-do backup');
-      root = data;
-      path = [];
-      save();
-      render();
-    } catch (err) {
-      alert('Could not import that file: ' + err.message);
-    }
-    e.target.value = '';
-  };
-
-  // Desktop-only controls (exposed by preload.js in the Electron build)
-  if (window.desktop) {
-    const pinBtn = $('pinBtn');
-    pinBtn.hidden = false;
-    $('closeBtn').hidden = false;
-    let pinned = false;
-    pinBtn.onclick = () => {
-      pinned = !pinned;
-      window.desktop.setAlwaysOnTop(pinned);
-      pinBtn.textContent = pinned ? 'Pinned' : 'Pin';
-    };
-    $('closeBtn').onclick = () => window.desktop.close();
-  }
-
-  applySettings();
-  render();
-</script>
+  <script src="app.js"></script>
 </body>
 </html>
