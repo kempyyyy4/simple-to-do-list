@@ -6,4 +6,6 @@ contextBridge.exposeInMainWorld('desktop', {
   loadData: () => ipcRenderer.sendSync('data-load'),
   saveData: data => ipcRenderer.send('data-save', data),
   saveDataSync: data => ipcRenderer.sendSync('data-save', data),
+  onState: callback => ipcRenderer.on('state-update', (_event, data) => callback(data)),
+  openNote: (id, x, y) => ipcRenderer.send('open-note-window', { id, x, y }),
 });

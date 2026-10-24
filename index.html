@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="sepia" data-font="mono" data-size="medium" data-density="comfy" data-corners="soft" data-anim="chess">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -57,61 +57,64 @@
   </main>
 
   <section id="settings" class="settings" hidden>
-    <label>Theme <select id="theme"></select></label>
-    <label>Font <select id="font"></select></label>
-    <label>Text size
-      <select id="size">
-        <option value="small">Small</option>
-        <option value="medium">Medium</option>
-        <option value="large">Large</option>
-      </select>
-    </label>
-    <label>Density
-      <select id="density">
-        <option value="compact">Compact</option>
-        <option value="comfy">Comfy</option>
-      </select>
-    </label>
-    <label>Corners
-      <select id="corners">
-        <option value="sharp">Sharp</option>
-        <option value="soft">Soft</option>
-        <option value="round">Round</option>
-      </select>
-    </label>
-    <label>Animation
-      <select id="anim">
-        <option value="off">Off</option>
-        <option value="chess">Chess (smooth)</option>
-        <option value="retro">1964 (retro)</option>
-        <option value="arcade">Arcade (satisfying)</option>
-      </select>
-    </label>
-    <label>Animation length <span class="range-row"><input id="speed" type="range" min="0.5" max="2" step="0.05"><span id="speedVal"></span></span></label>
-    <label>Text cursor
-      <select id="caret">
-        <option value="default">Default</option>
-        <option value="coder">Coder (block)</option>
-        <option value="smooth">Smooth (glide)</option>
-      </select>
-    </label>
-    <label class="check"><input id="words" type="checkbox"> Random word prompts</label>
-    <label>Accent
-      <div class="accent-row">
-        <input id="accent" type="color">
-        <button id="accentReset">Reset</button>
-      </div>
-    </label>
+    <div class="set-group">
+      <span class="set-title">Theme</span>
+      <div id="themePick"></div>
+      <button id="openCustomise" class="wide-btn">Customise themes…</button>
+    </div>
+    <div class="set-group">
+      <span class="set-title">Motion</span>
+      <label>Animation
+        <select id="anim">
+          <option value="off">Off</option>
+          <option value="chess">Chess (smooth)</option>
+          <option value="retro">1964 (retro)</option>
+          <option value="arcade">Arcade (satisfying)</option>
+        </select>
+      </label>
+      <label>Animation length <span class="range-row"><input id="speed" type="range" min="0.5" max="2.5" step="0.05"><span id="speedVal"></span></span></label>
+    </div>
+    <div class="set-group">
+      <span class="set-title">Writing</span>
+      <label>Text cursor
+        <select id="caret">
+          <option value="default">Default</option>
+          <option value="coder">Coder (block)</option>
+          <option value="smooth">Smooth (glide)</option>
+        </select>
+      </label>
+      <label class="check"><input id="words" type="checkbox"> Random word prompts</label>
+    </div>
     <div class="actions">
       <button id="exportBtn">Export</button>
       <label>Import<input id="importFile" type="file" accept="application/json"></label>
     </div>
   </section>
 
+  <section id="customise" class="cust" hidden>
+    <div class="cust-bar">
+      <span>Customisation</span>
+      <button id="custClose" aria-label="Close">✕</button>
+    </div>
+    <div class="cust-body">
+      <aside class="cust-list">
+        <div class="cust-actions">
+          <button data-act="new">New</button>
+          <button data-act="dup">Duplicate</button>
+          <button data-act="rename">Rename</button>
+          <button data-act="delete">Delete</button>
+        </div>
+        <div id="custCards" class="cust-cards"></div>
+      </aside>
+      <div id="custEditor" class="cust-editor"></div>
+    </div>
+  </section>
+
   <section id="noteWin" class="note-win" hidden>
     <div class="note-bar">
       <span id="noteTitle"></span>
-      <button id="noteClose" aria-label="Close note">✕</button>
+      <button id="notePop" title="Pop out into its own window" aria-label="Pop out">⧉</button>
+      <button id="noteClose" title="Close" aria-label="Close note">✕</button>
     </div>
     <div id="noteBody" class="note-body"></div>
     <div class="note-add">
@@ -125,9 +128,12 @@
   </section>
 
   <script src="themes.js"></script>
+  <script src="picker.js"></script>
   <script src="caret.js"></script>
   <script src="pong.js"></script>
+  <script src="reminders.js"></script>
   <script src="notes.js"></script>
+  <script src="customise.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

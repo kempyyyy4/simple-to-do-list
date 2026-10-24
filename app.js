@@ -1,9 +1,12 @@
 (() => {
   'use strict';
 
-  const { THEMES, FONTS, WORDS, Caret, Pong, Notes } = window.Todo;
+  const {
+    BUILTIN_THEMES, DEFAULT_THEME_ID, WORDS, applyTheme, normalizeTheme, fontStack,
+    Caret, Pong, Notes, Reminders, Customise, Picker,
+  } = window.Todo;
 
-  // Motion presets. Durations are base values in ms; the Duration setting scales them.
+  // Motion presets. Durations are base values in ms; the Animation length setting scales them.
   const MOTION = {
     off: { dur: 0, ease: 'linear', enter: [], exit: [], nav: 0, pop: false, burst: false },
     chess: {
@@ -29,14 +32,11 @@
     },
   };
 
-  const LS_TREE = 'todo-tree-v1';
-  const LS_SETTINGS = 'todo-settings-v1';
-  const DEFAULT_SETTINGS = {
-    theme: 'sepia', font: 'mono', size: 'medium', density: 'comfy', corners: 'soft',
-    anim: 'chess', speed: 1, caret: 'default', words: true, accent: null,
-  };
+  const KEY = 'todo-state-v2';
+  const DEFAULT_SETTINGS = { themeId: DEFAULT_THEME_ID, anim: 'chess', speed: 1, caret: 'default', words: true };
 
   const desktop = window.desktop; // only present inside the Electron app
+  const detachedId = new URLSearchParams(location.search).get('note'); // set in a popped-out note window
 
   const $ = id => document.getElementById(id);
   const el = (tag, cls, text) => {
@@ -59,34 +59,77 @@
   }
 
   // Fills in fields that older saves don't have.
-  function normalize(node) {
+  function normalizeTree(node) {
     node.type = node.type === 'folder' ? 'folder' : 'task';
     node.done = Boolean(node.done);
     node.tracked = Boolean(node.tracked);
     node.log = node.log || {};
-    node.children = (node.children || []).map(normalize);
+    node.children = (node.children || []).map(normalizeTree);
     return node;
   }
 
-  // Electron keeps everything in a JSON file (see main.js). The browser uses localStorage.
-  const saved = desktop ? (desktop.loadData() || {}) : { tree: readJSON(LS_TREE), settings: readJSON(LS_SETTINGS) };
-  let root = normalize(saved.tree || { id: 'root', text: '', children: [] });
-  root.id = 'root';
-  root.type = 'folder';
-  let settings = { ...DEFAULT_SETTINGS, ...(saved.settings || {}) };
+  // ---- State -------------------------------------------------------------
+
+  let root;          // the task tree
+  let settings;      // theme choice, motion, cursor, prompts
+  let customThemes;  // themes the user made
+  let inbox;         // reminders that have come due
+
+  // Takes a saved object (any version) and sets the live state from it.
+  function adopt(raw) {
+    raw = raw || {};
+    root = normalizeTree(raw.tree || { id: 'root', text: '', children: [] });
+    root.id = 'root';
+    root.type = 'folder';
+
+    const s = raw.settings || {};
+    settings = { ...DEFAULT_SETTINGS };
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (s[key] !== undefined) settings[key] = s[key];
+    }
+    if (!s.themeId && s.theme) settings.themeId = s.theme; // first version stored the theme as "theme"
+
+    customThemes = (raw.themes || []).map(t => normalizeTheme(t, false));
+    inbox = raw.inbox || [];
+  }
+
+  function loadInitial() {
+    if (desktop) return desktop.loadData() || {};
+    const current = readJSON(KEY);
+    if (current) return current;
+    // Migrate the first version's keys.
+    return { tree: readJSON('todo-tree-v1'), settings: readJSON('todo-settings-v1') };
+  }
+
+  function snapshot() {
+    return { tree: root, settings, themes: customThemes, inbox };
+  }
 
   function save() {
-    if (desktop) desktop.saveData({ tree: root, settings });
-    else {
-      writeJSON(LS_TREE, root);
-      writeJSON(LS_SETTINGS, settings);
-    }
+    if (desktop) desktop.saveData(snapshot());
+    else writeJSON(KEY, snapshot());
   }
-  // Flush synchronously when the window closes, so the last change always lands on disk.
-  if (desktop) window.addEventListener('pagehide', () => desktop.saveDataSync({ tree: root, settings }));
 
+  // Keeps other windows in step. Electron's main process relays saves; browsers fire a storage event.
+  if (desktop) {
+    desktop.onState(data => { adopt(data); refreshAll(); });
+  } else {
+    window.addEventListener('storage', e => {
+      if (e.key === KEY && e.newValue) {
+        adopt(JSON.parse(e.newValue));
+        refreshAll();
+      }
+    });
+  }
+  // The main window saves synchronously on close so the last change always lands on disk.
+  if (desktop && !detachedId) {
+    window.addEventListener('pagehide', () => desktop.saveDataSync(snapshot()));
+  }
+
+  const themes = () => [...BUILTIN_THEMES, ...customThemes];
+  const activeTheme = () => themes().find(t => t.id === settings.themeId) || BUILTIN_THEMES.find(t => t.id === DEFAULT_THEME_ID);
   const motion = () => MOTION[settings.anim] || MOTION.chess;
-  // Motion with the Duration setting applied. Used by the JS animations.
+  // Motion with the Animation length setting applied. Used by the JS animations.
   const timing = () => {
     const M = motion();
     return { ...M, dur: M.dur * settings.speed };
@@ -105,6 +148,25 @@
   // `after` holds animations that must wait until the new rows are in the page.
   const ui = { focus: null, enter: null, pop: null, nav: 0, focusAdd: true, after: [] };
 
+  function findNode(node, id) {
+    if (node.id === id) return node;
+    for (const child of node.children) {
+      const found = findNode(child, id);
+      if (found) return found;
+    }
+    return null;
+  }
+  const findById = id => findNode(root, id);
+
+  function findPath(id, node = root, acc = []) {
+    for (const child of node.children) {
+      if (child.id === id) return [...acc, child.id];
+      const found = findPath(id, child, [...acc, child.id]);
+      if (found) return found;
+    }
+    return null;
+  }
+
   // Walks the saved path and returns the nodes from root to current.
   // Stops early if a folder in the path was deleted.
   function trail() {
@@ -116,6 +178,49 @@
     }
     path = nodes.slice(1).map(n => n.id);
     return nodes;
+  }
+
+  // ---- Apply and sync ----------------------------------------------------
+
+  function syncSettingsControls() {
+    $('anim').value = settings.anim;
+    $('speed').value = settings.speed;
+    $('speedVal').textContent = `${Math.round(settings.speed * 100)}%`;
+    $('caret').value = settings.caret;
+    $('words').checked = settings.words;
+  }
+
+  function applyAll() {
+    applyTheme(activeTheme());
+    const html = document.documentElement;
+    html.dataset.anim = settings.anim;
+    // --k scales every CSS transition. It is 0 when animation is off, so changes are instant.
+    html.style.setProperty('--k', settings.anim === 'off' ? '0' : String(settings.speed));
+    Caret.setStyle(settings.caret);
+    syncSettingsControls();
+  }
+
+  // Saves whatever changed and repaints the theme. Called after every edit.
+  function touch() {
+    applyAll();
+    save();
+  }
+
+  // Picks a theme and takes on its motion and cursor. Settings can still change them afterwards.
+  function activate(id) {
+    settings.themeId = id;
+    const t = activeTheme();
+    settings.anim = t.motion.anim;
+    settings.speed = t.motion.speed;
+    settings.caret = t.motion.caret;
+    touch();
+  }
+
+  function refreshAll() {
+    applyAll();
+    render();
+    Notes.refresh();
+    Customise.refresh();
   }
 
   // ---- Animation helpers -------------------------------------------------
@@ -141,8 +246,7 @@
   }
 
   function pop(target) {
-    const M = timing();
-    if (M.pop) {
+    if (timing().pop) {
       target.animate(
         [{ transform: 'scale(0.7)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }],
         { duration: 520 * settings.speed, easing: 'ease-out' },
@@ -223,6 +327,65 @@
   setInterval(checkDay, 15000);
   window.addEventListener('focus', checkDay);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
+
+  // ---- Reminders and inbox -----------------------------------------------
+
+  function checkReminders() {
+    if (detachedId) return;
+    const fired = Reminders.checkDue(root, inbox);
+    if (!fired.length) return;
+    save();
+    fired.forEach(item => Reminders.toast(item, goToNode));
+    render();
+  }
+  setInterval(checkReminders, 15000);
+  window.addEventListener('focus', checkReminders);
+
+  // Opens the list that holds a task or folder, so you can see it.
+  function goToNode(id) {
+    const ids = findPath(id);
+    const node = findById(id);
+    if (!ids || !node) return;
+    path = node.type === 'folder' ? ids : ids.slice(0, -1);
+    view = 'list';
+    ui.nav = 0;
+    ui.focusAdd = true;
+    render();
+  }
+
+  const trayHandlers = {
+    open: goToNode,
+    dismiss: id => { inbox = inbox.filter(i => i.id !== id); save(); render(); },
+    clear: () => { inbox = []; save(); render(); },
+    markAllRead: () => { inbox.forEach(i => { i.read = true; }); save(); },
+  };
+
+  // ---- Notes -------------------------------------------------------------
+
+  function popOutNote(id, x, y) {
+    if (desktop) {
+      desktop.openNote(id, x, y);
+      return;
+    }
+    const base = location.href.split('?')[0];
+    window.open(
+      `${base}?note=${encodeURIComponent(id)}`,
+      `note-${id}`,
+      `popup=yes,width=420,height=540,left=${Math.max(0, Math.round(x - 40))},top=${Math.max(0, Math.round(y - 16))}`,
+    );
+  }
+
+  const noteOptions = () => ({
+    getNode: findById,
+    onChange: save,
+    motion: () => {
+      const M = timing();
+      return { dur: M.dur, ease: M.ease };
+    },
+    onPopOut: popOutNote,
+    detached: Boolean(detachedId),
+    closeWindow: () => (desktop ? desktop.close() : window.close()),
+  });
 
   // ---- Rendering ---------------------------------------------------------
 
@@ -316,6 +479,15 @@
       if (ui.pop === `today:${node.id}`) ui.after.push(() => pop(today));
     }
 
+    const pending = (node.reminders || []).filter(r => !r.fired).length;
+    const rem = el('button', `rem-btn${pending ? ' on' : ''}`, '◷');
+    rem.title = pending ? `${pending} reminder${pending === 1 ? '' : 's'}` : 'Add a reminder';
+    rem.onclick = e => {
+      e.stopPropagation();
+      Reminders.openPopover(node, rem, () => { save(); render(); });
+    };
+    li.append(rem);
+
     if (!isFolder) {
       const track = el('button', `track${node.tracked ? ' on' : ''}`, '◎');
       track.title = node.tracked ? 'Stop tracking' : 'Track day by day';
@@ -325,7 +497,7 @@
 
     const note = el('button', `note${hasNote(node) ? ' on' : ''}`, '✎');
     note.title = 'Open note';
-    note.onclick = () => Notes.open(node, node.text || 'Untitled', save, timing);
+    note.onclick = () => Notes.open(node.id, noteOptions());
     li.append(note);
 
     const open = el('button', 'open');
@@ -496,6 +668,8 @@
     if (view === 'list') renderList(current);
     else renderProgress();
 
+    if (!detachedId) Reminders.renderTray(inbox, trayHandlers);
+
     const M = timing();
     if (dir && M.nav) {
       const section = view === 'list' ? $('listView') : $('progressView');
@@ -625,59 +799,34 @@
 
   // ---- Settings ----------------------------------------------------------
 
-  function fillSelect(select, items) {
-    select.replaceChildren(...items.map(([value, label]) => new Option(label, value)));
-  }
-  fillSelect($('theme'), THEMES.map(t => [t.id, t.label]));
-  fillSelect($('font'), FONTS.map(f => [f.id, f.label]));
-
-  function applySettings() {
-    const html = document.documentElement;
-    html.dataset.theme = settings.theme;
-    html.dataset.size = settings.size;
-    html.dataset.density = settings.density;
-    html.dataset.corners = settings.corners;
-    html.dataset.anim = settings.anim;
-
-    const font = FONTS.find(f => f.id === settings.font) || FONTS[0];
-    html.style.setProperty('--font', font.stack);
-    // --k scales every CSS transition. It is 0 when animation is off, so changes are instant.
-    html.style.setProperty('--k', settings.anim === 'off' ? '0' : String(settings.speed));
-
-    if (settings.accent) html.style.setProperty('--accent', settings.accent);
-    else html.style.removeProperty('--accent');
-    const accent = getComputedStyle(html).getPropertyValue('--accent').trim();
-
-    $('theme').value = settings.theme;
-    $('font').value = settings.font;
-    $('size').value = settings.size;
-    $('density').value = settings.density;
-    $('corners').value = settings.corners;
-    $('anim').value = settings.anim;
-    $('speed').value = settings.speed;
-    $('speedVal').textContent = `${Math.round(settings.speed * 100)}%`;
-    $('caret').value = settings.caret;
-    $('words').checked = settings.words;
-    $('accent').value = /^#[0-9a-f]{6}$/i.test(accent) ? accent : '#000000';
-
-    Caret.setStyle(settings.caret);
-  }
-
-  function applyAndSave() {
-    applySettings();
-    save();
+  let themePicker = null;
+  function mountThemePicker() {
+    themePicker = Picker.create({
+      items: themes().map(t => ({
+        value: t.id,
+        label: t.name,
+        swatch: [t.colors.bg, t.colors.panel, t.colors.accent, t.colors.accent2, t.colors.fg],
+        style: `font-family: ${fontStack(t.font)}`,
+      })),
+      value: settings.themeId,
+      onChange: id => activate(id),
+    });
+    $('themePick').replaceChildren(themePicker.el);
   }
 
   function toggleSettings(force) {
     const panel = $('settings');
     const show = force ?? panel.hidden;
     panel.hidden = !show;
-    const M = timing();
-    if (show && M.dur) {
-      panel.animate(
-        [{ opacity: 0, transform: 'translateY(-10px) scale(0.97)' }, { opacity: 1, transform: 'none' }],
-        { duration: M.dur, easing: M.ease },
-      );
+    if (show) {
+      mountThemePicker();
+      const M = timing();
+      if (M.dur) {
+        panel.animate(
+          [{ opacity: 0, transform: 'translateY(-10px) scale(0.97)' }, { opacity: 1, transform: 'none' }],
+          { duration: M.dur, easing: M.ease },
+        );
+      }
     }
   }
 
@@ -689,28 +838,21 @@
     toggleSettings(false);
   });
 
-  $('theme').onchange = e => {
-    settings.theme = e.target.value;
-    settings.accent = null; // each theme keeps its own default accent unless you pick one
-    applyAndSave();
-  };
-  $('font').onchange = e => { settings.font = e.target.value; applyAndSave(); };
-  $('size').onchange = e => { settings.size = e.target.value; applyAndSave(); };
-  $('density').onchange = e => { settings.density = e.target.value; applyAndSave(); };
-  $('corners').onchange = e => { settings.corners = e.target.value; applyAndSave(); };
-  $('anim').onchange = e => { settings.anim = e.target.value; applyAndSave(); };
-  $('speed').oninput = e => { settings.speed = Number(e.target.value); applyAndSave(); };
-  $('caret').onchange = e => { settings.caret = e.target.value; applyAndSave(); };
+  $('anim').onchange = e => { settings.anim = e.target.value; touch(); };
+  $('speed').oninput = e => { settings.speed = Number(e.target.value); touch(); };
+  $('caret').onchange = e => { settings.caret = e.target.value; touch(); };
   $('words').onchange = e => {
     settings.words = e.target.checked;
-    applyAndSave();
+    touch();
     startWords();
   };
-  $('accent').oninput = e => { settings.accent = e.target.value; applyAndSave(); };
-  $('accentReset').onclick = () => { settings.accent = null; applyAndSave(); };
+  $('openCustomise').onclick = () => {
+    toggleSettings(false);
+    Customise.open();
+  };
 
   $('exportBtn').onclick = () => {
-    const blob = new Blob([JSON.stringify(root, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(snapshot(), null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'todo-backup.json';
@@ -723,19 +865,34 @@
     if (!file) return;
     try {
       const data = JSON.parse(await file.text());
-      if (!Array.isArray(data.children)) throw new Error('Not a to-do backup');
-      root = normalize(data);
-      root.id = 'root';
-      root.type = 'folder';
+      if (!Array.isArray((data.tree || data).children)) throw new Error('Not a to-do backup');
+      adopt(data);
       path = [];
       save();
       ui.focusAdd = true;
-      render();
+      refreshAll();
     } catch (err) {
       alert('Could not import that file: ' + err.message);
     }
     e.target.value = '';
   };
+
+  Customise.init({
+    themes,
+    activeId: () => settings.themeId,
+    activate,
+    addCustom: theme => {
+      customThemes.push(theme);
+      activate(theme.id);
+    },
+    removeCustom: id => {
+      customThemes = customThemes.filter(t => t.id !== id);
+      if (settings.themeId === id) activate(DEFAULT_THEME_ID);
+      else touch();
+    },
+    touch,
+    motion: timing,
+  });
 
   // Desktop-only controls (exposed by preload.js in the Electron build).
   if (desktop) {
@@ -751,7 +908,17 @@
     $('closeBtn').onclick = () => desktop.close();
   }
 
-  applySettings();
+  // ---- Start -------------------------------------------------------------
+
+  adopt(loadInitial());
+  if (!detachedId) save(); // writes the current format, including any migrated data
+  applyAll();
   startWords();
   render();
+  if (detachedId) {
+    document.body.classList.add('detached');
+    Notes.open(detachedId, noteOptions());
+  } else {
+    checkReminders();
+  }
 })();

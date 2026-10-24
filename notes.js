@@ -1,17 +1,21 @@
 // A floating notepad for one task. Blocks can be text, headings, to-dos, trackers, charts or dividers.
 // The note is stored on the task as node.note = { blocks: [...] }.
+// Drag the title bar outside the app window and the note pops out into its own window.
 (() => {
   'use strict';
 
   const win = document.getElementById('noteWin');
   const body = document.getElementById('noteBody');
   const titleEl = document.getElementById('noteTitle');
+  const popBtn = document.getElementById('notePop');
+  const closeBtn = document.getElementById('noteClose');
 
+  let nodeId = null;
+  let opts = null;
   let node = null;
-  let onChange = () => {};
-  let motion = () => ({ dur: 0, ease: 'linear' });
 
   const uid = () => Math.random().toString(36).slice(2, 10);
+  const motion = () => (opts && opts.motion ? opts.motion() : { dur: 0, ease: 'linear' });
 
   function makeBlock(type) {
     const base = { id: uid(), type };
@@ -38,6 +42,12 @@
     });
   }
 
+  function el(tag, text) {
+    const n = document.createElement(tag);
+    n.textContent = text;
+    return n;
+  }
+
   function focusBlock(id) {
     const target = body.querySelector(`[data-bid="${id}"] .nb-focus`);
     if (!target) return;
@@ -52,21 +62,24 @@
     }
   }
 
+  function changed() {
+    opts.onChange();
+  }
+
   function insertAfter(index, block) {
     node.note.blocks.splice(index + 1, 0, block);
-    onChange();
+    changed();
     render();
     focusBlock(block.id);
   }
 
   function removeAt(index, focusPrev = true) {
-    const [removed] = node.note.blocks.splice(index, 1);
+    node.note.blocks.splice(index, 1);
     if (node.note.blocks.length === 0) node.note.blocks.push(makeBlock('text'));
-    onChange();
+    changed();
     render();
     const prev = node.note.blocks[Math.max(0, index - 1)];
     if (focusPrev && prev) focusBlock(prev.id);
-    return removed;
   }
 
   function wrap(block, index, inner) {
@@ -90,7 +103,7 @@
     div.spellcheck = true;
     div.textContent = block.text;
     div.dataset.placeholder = heading ? 'Heading' : 'Write something…';
-    div.oninput = () => { block.text = div.textContent; onChange(); };
+    div.oninput = () => { block.text = div.textContent; changed(); };
     div.onkeydown = e => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -109,13 +122,13 @@
     const check = document.createElement('input');
     check.type = 'checkbox';
     check.checked = block.checked;
-    check.onchange = () => { block.checked = check.checked; onChange(); render(); };
+    check.onchange = () => { block.checked = check.checked; changed(); render(); };
     const text = document.createElement('input');
     text.type = 'text';
     text.className = `nb-focus nb-input${block.checked ? ' done' : ''}`;
     text.value = block.text;
     text.placeholder = 'To-do';
-    text.oninput = () => { block.text = text.value; onChange(); };
+    text.oninput = () => { block.text = text.value; changed(); };
     text.onkeydown = e => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -132,24 +145,19 @@
   function trackerBlock(block, index) {
     const box = document.createElement('div');
     box.className = 'nb-card';
-    const head = document.createElement('div');
-    head.className = 'nb-card-head';
     const label = document.createElement('input');
     label.type = 'text';
-    label.className = 'nb-focus nb-input';
+    label.className = 'nb-focus nb-input nb-card-title';
     label.value = block.label;
-    label.oninput = () => { block.label = label.value; onChange(); };
-    head.append(label);
+    label.oninput = () => { block.label = label.value; changed(); };
 
-    const controls = document.createElement('div');
-    controls.className = 'nb-card-row';
     const bar = document.createElement('div');
     bar.className = 'nb-bar';
     const fill = document.createElement('i');
     bar.append(fill);
 
-    const readout = document.createElement('span');
-    readout.className = 'nb-readout';
+    const controls = document.createElement('div');
+    controls.className = 'nb-card-row';
     const value = document.createElement('input');
     value.type = 'number';
     value.className = 'nb-num';
@@ -159,6 +167,8 @@
     goal.className = 'nb-num';
     goal.value = block.goal;
     goal.min = '1';
+    const readout = document.createElement('span');
+    readout.className = 'nb-readout';
 
     const update = () => {
       const pct = block.goal > 0 ? Math.min(100, (block.value / block.goal) * 100) : 0;
@@ -168,27 +178,23 @@
     const setValue = v => {
       block.value = v;
       value.value = v;
-      onChange();
+      changed();
       update();
     };
-    const step = (delta, btn) => {
-      btn.onclick = () => setValue(Math.max(0, Math.round((block.value + delta) * 100) / 100));
-    };
-
     const minus = document.createElement('button');
     minus.type = 'button';
     minus.textContent = '−';
-    step(-1, minus);
+    minus.onclick = () => setValue(Math.max(0, Math.round((block.value - 1) * 100) / 100));
     const plus = document.createElement('button');
     plus.type = 'button';
     plus.textContent = '+';
-    step(1, plus);
+    plus.onclick = () => setValue(Math.round((block.value + 1) * 100) / 100);
 
-    value.oninput = () => { block.value = Number(value.value) || 0; onChange(); update(); };
-    goal.oninput = () => { block.goal = Number(goal.value) || 1; onChange(); update(); };
+    value.oninput = () => { block.value = Number(value.value) || 0; changed(); update(); };
+    goal.oninput = () => { block.goal = Number(goal.value) || 1; changed(); update(); };
 
     controls.append(minus, value, el('span', '/'), goal, plus, readout);
-    box.append(head, bar, controls);
+    box.append(label, bar, controls);
     update();
     return wrap(block, index, box);
   }
@@ -198,9 +204,9 @@
     box.className = 'nb-card';
     const title = document.createElement('input');
     title.type = 'text';
-    title.className = 'nb-focus nb-input';
+    title.className = 'nb-focus nb-input nb-card-title';
     title.value = block.title;
-    title.oninput = () => { block.title = title.value; onChange(); };
+    title.oninput = () => { block.title = title.value; changed(); };
 
     const values = document.createElement('input');
     values.type = 'text';
@@ -209,17 +215,11 @@
     values.placeholder = 'Mon 3, Tue 5, Wed 8';
     const svgWrap = document.createElement('div');
     const redraw = () => svgWrap.replaceChildren(barChart(parseValues(block.values)));
-    values.oninput = () => { block.values = values.value; onChange(); redraw(); };
+    values.oninput = () => { block.values = values.value; changed(); redraw(); };
     redraw();
 
     box.append(title, svgWrap, values);
     return wrap(block, index, box);
-  }
-
-  function el(tag, text) {
-    const node = document.createElement(tag);
-    node.textContent = text;
-    return node;
   }
 
   function barChart(data) {
@@ -272,17 +272,28 @@
   }
 
   function render() {
+    if (!node) return;
     body.replaceChildren(...node.note.blocks.map((b, i) => blockEl(b, i)));
   }
 
-  function open(taskNode, label, changed, motionFn) {
-    node = taskNode;
+  // Looks the task up again. Needed after another window changes the saved data.
+  function refresh() {
+    if (!nodeId) return;
+    node = opts.getNode(nodeId);
+    if (!node) return close();
     node.note = node.note || { blocks: [] };
     if (node.note.blocks.length === 0) node.note.blocks.push(makeBlock('text'));
-    onChange = changed;
-    motion = motionFn || motion;
-    titleEl.textContent = label;
+    titleEl.textContent = node.text || 'Untitled';
     render();
+  }
+
+  function open(id, options) {
+    nodeId = id;
+    opts = options;
+    popBtn.hidden = Boolean(opts.detached);
+    win.classList.toggle('detached-note', Boolean(opts.detached));
+    refresh();
+    if (!node) return;
     win.hidden = false;
     const M = motion();
     if (M.dur) {
@@ -291,50 +302,74 @@
         { duration: M.dur, easing: M.ease },
       );
     }
-    const first = body.querySelector('.nb-focus');
-    if (first && first.isContentEditable) focusBlock(node.note.blocks[0].id);
+    if (!opts.detached) return;
+    focusBlock(node.note.blocks[0].id);
   }
 
   function close() {
+    if (opts?.detached) {
+      opts.closeWindow();
+      return;
+    }
     win.hidden = true;
+    nodeId = null;
     node = null;
+    opts = null;
   }
 
   // Add-block buttons.
   win.querySelectorAll('.note-add button').forEach(btn => {
     btn.onclick = () => {
       if (!node) return;
-      const at = node.note.blocks.length - 1;
-      insertAfter(at, makeBlock(btn.dataset.type));
+      insertAfter(node.note.blocks.length - 1, makeBlock(btn.dataset.type));
     };
   });
 
-  // Dragging by the title bar.
+  // Dragging by the title bar. Letting go outside the app window pops the note out.
   const bar = win.querySelector('.note-bar');
   bar.addEventListener('pointerdown', e => {
-    if (e.target.closest('button')) return;
+    if (e.target.closest('button') || opts?.detached) return;
     const rect = win.getBoundingClientRect();
     const offX = e.clientX - rect.left;
     const offY = e.clientY - rect.top;
     bar.setPointerCapture(e.pointerId);
     const move = ev => {
-      win.style.left = `${Math.max(0, ev.clientX - offX)}px`;
-      win.style.top = `${Math.max(0, ev.clientY - offY)}px`;
+      win.style.left = `${ev.clientX - offX}px`;
+      win.style.top = `${ev.clientY - offY}px`;
       win.style.right = 'auto';
       win.style.bottom = 'auto';
     };
-    const up = () => {
+    const up = ev => {
       bar.removeEventListener('pointermove', move);
       bar.removeEventListener('pointerup', up);
+      const outside = ev.clientX < 0 || ev.clientY < 0 || ev.clientX > window.innerWidth || ev.clientY > window.innerHeight;
+      if (outside && opts?.onPopOut) popOut(ev.screenX, ev.screenY);
     };
     bar.addEventListener('pointermove', move);
     bar.addEventListener('pointerup', up);
   });
 
-  document.getElementById('noteClose').onclick = close;
+  function popOut(x, y) {
+    const id = nodeId;
+    const callback = opts.onPopOut;
+    close();
+    callback(id, x, y);
+  }
+
+  popBtn.onclick = () => {
+    if (!opts?.onPopOut) return;
+    const r = win.getBoundingClientRect();
+    popOut(window.screenX + r.left, window.screenY + r.top);
+  };
+  closeBtn.onclick = close;
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !win.hidden) close();
   });
 
-  window.Todo.Notes = { open, close, isOpenFor: id => !win.hidden && node?.id === id };
+  window.Todo.Notes = {
+    open,
+    close,
+    refresh,
+    isOpenFor: id => !win.hidden && nodeId === id,
+  };
 })();
