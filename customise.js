@@ -1,16 +1,14 @@
-// The Customisation panel. Pick a theme on the left and change anything about it on the right.
-// Built-in themes are read-only, so duplicate one to make your own. Changes apply live.
+// The customisation panel. It docks to the right, like Settings, and edits the active theme.
+// Built-in themes are read-only, so duplicate one to change it. Changes apply live.
 (() => {
   'use strict';
 
-  const { FONTS, BUILTIN_THEMES, Picker } = window.Todo;
+  const { FONTS, BUILTIN_THEMES } = window.Todo;
   const panel = document.getElementById('customise');
-  const cards = document.getElementById('custCards');
   const editor = document.getElementById('custEditor');
-  const actions = panel.querySelector('.cust-actions');
+  const titleEl = document.getElementById('custTitle');
 
   let api = null;
-  let selectedId = null;
 
   const el = (tag, cls, text) => {
     const node = document.createElement(tag);
@@ -24,54 +22,63 @@
     ['bg', 'Background'], ['panel', 'Panels'], ['fg', 'Text'], ['muted', 'Muted text'],
     ['border', 'Borders'], ['hover', 'Hover'], ['accent', 'Accent'], ['accent2', 'Second accent'],
   ];
-  const MOTION_STYLES = [['off', 'Off'], ['chess', 'Chess (smooth)'], ['retro', '1964 (retro)'], ['arcade', 'Arcade (satisfying)']];
-  const CARETS = [['default', 'Default'], ['coder', 'Coder (block)'], ['smooth', 'Smooth (glide)']];
+  const MOTION_STYLES = [['off', 'Off'], ['chess', 'Chess'], ['retro', '1964'], ['arcade', 'Arcade']];
+  const CARETS = [['default', 'Default'], ['coder', 'Coder'], ['smooth', 'Smooth']];
   const BUTTON_SHAPES = [['square', 'Square'], ['soft', 'Soft'], ['pill', 'Pill']];
 
-  const selected = () => api.themes().find(t => t.id === selectedId) || api.themes()[0];
+  const current = () => api.themes().find(t => t.id === api.activeId()) || api.themes()[0];
 
   function field(label, control, wide = false) {
     const wrap = el('label', `cust-field${wide ? ' wide' : ''}`);
-    wrap.append(el('span', 'cust-label', label), control);
+    wrap.append(el('span', '', label), control);
     return wrap;
   }
 
-  function colourInput(theme, key) {
+  function section(title, ...children) {
+    const s = el('section', 'cust-section');
+    s.append(el('h3', '', title));
+    const grid = el('div', 'cust-grid');
+    grid.append(...children);
+    s.append(grid);
+    return s;
+  }
+
+  function colourInput(t, key) {
     const input = el('input');
     input.type = 'color';
-    input.value = theme.colors[key];
+    input.value = t.colors[key];
     input.oninput = () => {
-      theme.colors[key] = input.value;
+      t.colors[key] = input.value;
       api.touch();
-      renderCards();
     };
     return input;
   }
 
-  function slider(theme, key, min, max, step, unit = '', onChange) {
+  // Number slider. onChange defaults to a plain save.
+  function slider(obj, key, min, max, step, unit = '', onChange = api.touch) {
     const row = el('span', 'cust-range');
     const input = el('input');
     input.type = 'range';
     input.min = min;
     input.max = max;
     input.step = step;
-    input.value = theme[key];
-    const out = el('output', '', `${theme[key]}${unit}`);
+    input.value = obj[key];
+    const out = el('output', '', `${obj[key]}${unit}`);
     input.oninput = () => {
-      theme[key] = Number(input.value);
+      obj[key] = Number(input.value);
       out.textContent = `${input.value}${unit}`;
-      (onChange || api.touch)();
+      onChange();
     };
     row.append(input, out);
     return row;
   }
 
-  function toggle(theme, key) {
+  function toggle(obj, key) {
     const input = el('input');
     input.type = 'checkbox';
-    input.checked = theme[key];
+    input.checked = obj[key];
     input.onchange = () => {
-      theme[key] = input.checked;
+      obj[key] = input.checked;
       api.touch();
     };
     return input;
@@ -85,56 +92,36 @@
     return s;
   }
 
-  function section(title, ...children) {
-    const s = el('section', 'cust-section');
-    s.append(el('h3', '', title));
-    const grid = el('div', 'cust-grid');
-    grid.append(...children);
-    s.append(grid);
-    return s;
-  }
-
-  function renderCards() {
-    const current = api.activeId();
-    cards.replaceChildren(...api.themes().map(t => {
-      const card = el('button', `card${t.id === current ? ' active' : ''}`);
-      card.type = 'button';
-      const strip = el('span', 'card-swatch');
-      [t.colors.bg, t.colors.panel, t.colors.accent, t.colors.accent2, t.colors.fg].forEach(c => {
-        const i = el('i');
-        i.style.background = c;
-        strip.append(i);
-      });
-      const name = el('span', 'card-name', t.name);
-      name.style.fontFamily = (FONTS.find(f => f.id === t.font) || FONTS[0]).stack;
-      card.append(strip, name, el('span', 'card-tag', t.builtin ? 'Built-in' : 'Custom'));
-      card.onclick = () => {
-        selectedId = t.id;
-        api.activate(t.id);
-        renderAll();
+  // The full font list. Each name is drawn in its own font, like a word processor's list.
+  function fontList(t) {
+    const list = el('div', 'font-list');
+    const items = FONTS.map(f => {
+      const b = el('button', `font-item${f.id === t.font ? ' active' : ''}`);
+      b.type = 'button';
+      b.style.fontFamily = f.stack;
+      b.append(el('span', '', f.label), el('small', '', 'Aa'));
+      b.onclick = () => {
+        t.font = f.id;
+        list.querySelectorAll('.font-item').forEach(x => x.classList.toggle('active', x === b));
+        api.touch();
       };
-      return card;
-    }));
+      return b;
+    });
+    list.append(...items);
+    return list;
   }
 
-  function renderEditor() {
-    const t = selected();
-    editor.textContent = '';
+  function render() {
+    const t = current();
+    titleEl.textContent = t.name;
+
     const frame = el('fieldset', 'cust-editor-inner');
     frame.disabled = t.builtin;
-    if (t.builtin) {
-      frame.append(el('p', 'cust-note', `${t.name} is built in. Duplicate it to make changes.`));
-    }
-
-    const fontPicker = Picker.create({
-      items: FONTS.map(f => ({ value: f.id, label: f.label, style: `font-family: ${f.stack}` })),
-      value: t.font,
-      onChange: v => { t.font = v; api.touch(); renderCards(); },
-    });
+    if (t.builtin) frame.append(el('p', 'cust-note', `${t.name} is built in. Duplicate it to make changes.`));
 
     const colours = section('Colours', ...COLOUR_FIELDS.map(([key, label]) => field(label, colourInput(t, key))));
     const type = section('Type',
-      field('Font', fontPicker.el, true),
+      field('Font', fontList(t), true),
       field('Text size', slider(t, 'size', 12, 20, 1, 'px')),
       field('Uppercase headings', toggle(t, 'upper')),
     );
@@ -151,21 +138,17 @@
       field('Grid background', toggle(t, 'grid')),
       field('Scanlines', toggle(t, 'scanlines')),
     );
-    const motion = section('Motion',
-      field('Animation', select(MOTION_STYLES, t.motion.anim, v => { t.motion.anim = v; api.activate(t.id); })),
-      field('Animation length', slider(t.motion, 'speed', 0.5, 2.5, 0.05, '×', () => api.activate(t.id))),
-      field('Text cursor', select(CARETS, t.motion.caret, v => { t.motion.caret = v; api.activate(t.id); })),
+    // Motion lives on the theme and is copied into Settings when it's the active theme.
+    const motionSection = section('Motion',
+      field('Animation', select(MOTION_STYLES, t.motion.anim, v => { t.motion.anim = v; api.applyMotion(); })),
+      field('Animation length', slider(t.motion, 'speed', 0.5, 2.5, 0.05, '×', () => api.applyMotion())),
+      field('Text cursor', select(CARETS, t.motion.caret, v => { t.motion.caret = v; api.applyMotion(); })),
     );
-    frame.append(colours, type, shape, effects, motion);
-    editor.append(frame);
+    frame.append(colours, type, shape, effects, motionSection);
+    editor.replaceChildren(frame);
   }
 
-  function renderAll() {
-    renderCards();
-    renderEditor();
-  }
-
-  function newFrom(source, name) {
+  function copyOf(source, name) {
     const copy = JSON.parse(JSON.stringify(source));
     copy.id = uid();
     copy.name = name;
@@ -173,39 +156,38 @@
     return copy;
   }
 
-  actions.addEventListener('click', e => {
+  panel.querySelector('.cust-actions').addEventListener('click', e => {
     const act = e.target.closest('button')?.dataset.act;
     if (!act) return;
-    const current = selected();
+    const t = current();
     if (act === 'new' || act === 'dup') {
-      const name = prompt('Name for the new theme', act === 'new' ? 'My theme' : `${current.name} copy`);
+      const name = prompt('Name for the new theme', act === 'new' ? 'My theme' : `${t.name} copy`);
       if (!name) return;
-      const copy = newFrom(act === 'new' ? BUILTIN_THEMES[0] : current, name.trim());
-      api.addCustom(copy);
-      selectedId = copy.id;
+      const base = act === 'new' ? BUILTIN_THEMES[0] : t;
+      api.addCustom(copyOf(base, name.trim()));
     } else if (act === 'rename') {
-      if (current.builtin) return;
-      const name = prompt('Rename theme', current.name);
+      if (t.builtin) return;
+      const name = prompt('Rename theme', t.name);
       if (!name) return;
-      current.name = name.trim();
+      t.name = name.trim();
       api.touch();
+      render();
     } else if (act === 'delete') {
-      if (current.builtin) return;
-      if (!confirm(`Delete "${current.name}"?`)) return;
-      api.removeCustom(current.id);
-      selectedId = null;
+      if (t.builtin) return;
+      if (!confirm(`Delete "${t.name}"?`)) return;
+      api.removeCustom(t.id);
     }
-    renderAll();
   });
 
-  function open(startId) {
-    selectedId = startId || api.activeId();
+  // Edits make many small changes. Turning transitions off while dragging keeps the sliders responsive.
+  panel.addEventListener('pointerdown', () => window.Todo.setScale(0));
+  window.addEventListener('pointerup', () => window.Todo.applyScale());
+
+  function open() {
     panel.hidden = false;
-    renderAll();
+    render();
     const M = api.motion();
-    if (M.dur) {
-      panel.animate([{ opacity: 0, transform: 'scale(0.98)' }, { opacity: 1, transform: 'none' }], { duration: M.dur, easing: M.ease });
-    }
+    if (M.dur) panel.animate([{ opacity: 0, transform: 'translateY(-10px) scale(0.97)' }, { opacity: 1, transform: 'none' }], { duration: M.dur, easing: M.ease });
   }
 
   function close() {
@@ -214,6 +196,11 @@
 
   document.getElementById('custClose').onclick = close;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) close(); });
+  // Like Settings, clicking anywhere else closes it.
+  document.addEventListener('pointerdown', e => {
+    if (panel.hidden || e.target.closest('#customise, #openCustomise, #settingsBtn')) return;
+    close();
+  });
 
   window.Todo.Customise = {
     init(options) {
@@ -221,6 +208,6 @@
     },
     open,
     close,
-    refresh: () => { if (!panel.hidden) renderAll(); },
+    refresh: () => { if (!panel.hidden) render(); },
   };
 })();

@@ -57,7 +57,7 @@ window.Todo = window.Todo || {};
     grid: false,       // faint grid behind the page
     scanlines: false,  // CRT-style scanlines
     panelAlpha: 100,   // panel opacity, percent
-    blur: 0,           // backdrop blur behind panels, px
+    blur: 0,           // backdrop blur behind panels, px (0 turns it off entirely)
     glow: 0,           // glow strength, 0 to 100
     shadow: 12,        // shadow strength, 0 to 100
     motion: { anim: 'chess', speed: 1, caret: 'default' },
@@ -78,63 +78,10 @@ window.Todo = window.Todo || {};
   }
 
   const BUILTIN_THEMES = [
-    preset('light', 'Light', {
-      bg: '#fbfbfa', panel: '#ffffff', fg: '#37352f', muted: '#9b9a97',
-      border: '#e9e9e7', hover: '#f1f1ef', accent: '#2383e2', accent2: '#2383e2',
-    }, { font: 'sans' }),
-    preset('dark', 'Dark', {
-      bg: '#191919', panel: '#202020', fg: '#e6e6e4', muted: '#6b6b68',
-      border: '#2f2f2f', hover: '#2a2a2a', accent: '#5b9cf0', accent2: '#5b9cf0',
-    }, { font: 'sans' }),
-    preset('sepia', 'Sepia', {
+    preset('default', 'Default', {
       bg: '#f4ecd8', panel: '#f8f1e1', fg: '#5b4636', muted: '#a08c76',
       border: '#e3d6bb', hover: '#ece2cb', accent: '#b0622b', accent2: '#b0622b',
     }, { font: 'mono' }),
-    preset('midnight', 'Midnight', {
-      bg: '#0e1526', panel: '#152038', fg: '#dbe4ff', muted: '#6f7ea3',
-      border: '#23304f', hover: '#1b2945', accent: '#7aa2ff', accent2: '#7aa2ff',
-    }),
-    preset('forest', 'Forest', {
-      bg: '#eef3ea', panel: '#f6f9f3', fg: '#24361f', muted: '#7f9274',
-      border: '#d6e0cf', hover: '#e3ebdc', accent: '#3f7d4e', accent2: '#3f7d4e',
-    }),
-    preset('nord', 'Nord', {
-      bg: '#2e3440', panel: '#3b4252', fg: '#eceff4', muted: '#7b88a1',
-      border: '#4c566a', hover: '#434c5e', accent: '#88c0d0', accent2: '#81a1c1',
-    }),
-    preset('dracula', 'Dracula', {
-      bg: '#282a36', panel: '#343746', fg: '#f8f8f2', muted: '#6272a4',
-      border: '#44475a', hover: '#3d4050', accent: '#bd93f9', accent2: '#ff79c6',
-    }, { glow: 25 }),
-    preset('solarized', 'Solarized', {
-      bg: '#fdf6e3', panel: '#eee8d5', fg: '#586e75', muted: '#93a1a1',
-      border: '#ddd6c1', hover: '#f0e9d2', accent: '#268bd2', accent2: '#cb4b16',
-    }),
-    preset('rose', 'Rosé', {
-      bg: '#fff5f7', panel: '#ffffff', fg: '#5c3a45', muted: '#b7929e',
-      border: '#f3dce2', hover: '#fde9ee', accent: '#e0558a', accent2: '#f29bb8',
-    }),
-    preset('terminal', 'Terminal', {
-      bg: '#050a05', panel: '#0a120a', fg: '#7cff8a', muted: '#3c7a45',
-      border: '#17361c', hover: '#0e1f10', accent: '#5cff6a', accent2: '#5cff6a',
-    }, { font: 'mono', glow: 30, grid: true, scanlines: true }),
-    preset('vaporwave', 'Vaporwave', {
-      bg: '#1a0b2e', panel: '#241243', fg: '#f4e8ff', muted: '#8c6fb8',
-      border: '#3b1d62', hover: '#2e1656', accent: '#ff71ce', accent2: '#01cdfe',
-    }, { glow: 35 }),
-    preset('cyberpunk', 'Cyberpunk', {
-      bg: '#07060d', panel: '#0d0b1c', fg: '#d9fbff', muted: '#6b5f96',
-      border: '#2b2152', hover: '#16102e', accent: '#00f0ff', accent2: '#ff2a6d',
-    }, { font: 'mono', glow: 35, grid: true, scanlines: true, upper: true }),
-
-    // Examples to start from. Duplicate one to make it your own.
-    preset('codey', 'Codey', {
-      bg: '#0d1117', panel: '#161b22', fg: '#c9d1d9', muted: '#8b949e',
-      border: '#30363d', hover: '#1f2630', accent: '#58a6ff', accent2: '#3fb950',
-    }, {
-      font: 'code', size: 14, radius: 3, density: 3, buttons: 'square', shadow: 6,
-      motion: { anim: 'chess', speed: 0.6, caret: 'coder' },
-    }),
     preset('supersmooth', 'Supersmooth', {
       bg: '#f5f5f7', panel: '#ffffff', fg: '#1d1d1f', muted: '#86868b',
       border: '#d2d2d7', hover: '#e8e8ed', accent: '#0071e3', accent2: '#5ac8fa',
@@ -150,9 +97,13 @@ window.Todo = window.Todo || {};
       grid: true, scanlines: true, shadow: 0,
       motion: { anim: 'retro', speed: 1, caret: 'default' },
     }),
+    preset('terminal', 'Terminal', {
+      bg: '#050a05', panel: '#0a120a', fg: '#7cff8a', muted: '#3c7a45',
+      border: '#17361c', hover: '#0e1f10', accent: '#5cff6a', accent2: '#5cff6a',
+    }, { font: 'mono', glow: 30, grid: true, scanlines: true }),
   ];
 
-  const DEFAULT_THEME_ID = 'sepia';
+  const DEFAULT_THEME_ID = 'default';
 
   function fontStack(id) {
     return (FONTS.find(f => f.id === id) || FONTS[0]).stack;
@@ -177,6 +128,7 @@ window.Todo = window.Todo || {};
     html.dataset.upper = String(t.upper);
     html.dataset.grid = String(t.grid);
     html.dataset.scanlines = String(t.scanlines);
+    html.dataset.glass = String(t.blur > 0);
   }
 
   window.Todo.FONTS = FONTS;

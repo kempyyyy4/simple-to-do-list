@@ -30,23 +30,23 @@ npx @electron/packager . "To-do" --platform=win32 --arch=x64 --out=dist
 - **Add:** type and press Enter. Choose **Task** or **Folder** first. The cursor stays in the box, and it's focused whenever you open a list. ⟳ fills the box with a random prompt.
 - **Edit:** Enter in a row adds one below it. Backspace on an empty row deletes it.
 - **Sub-lists:** `›` opens a task or folder. The breadcrumb takes you back.
-- **Reminders:** `◷` on a task sets a date and time. When it's due, it appears as a toast and in the **Inbox** tray at the bottom right. Open an item to jump to its task, or tick it off. Reminders fire while the app is open. A browser tab that's closed can't alert you.
-- **Notes:** `✎` opens a floating notepad for the task. Add text, headings, to-dos, trackers, bar charts or dividers. Drag the title bar outside the app window to pop the note out into its own window, or use ⧉. Esc or ✕ closes it.
-- **Tracking:** `◎` tracks a task day by day. It gets a round "worked on it today" box and a streak. The Progress button opens a **Month** grid or a **Year** heatmap. Click a day to tick it.
+- **Reminders:** `◷` on a task sets a date and time. When it's due, it appears as a toast and in the **Inbox** tray at the bottom right. Reminders fire while the app is open.
+- **Notes:** `✎` opens a notepad for the task. Add text, headings, to-dos, trackers, bar charts or dividers. Drag the title bar out of the app window and the note tears off into its own window, following the cursor until you let go. ⧉ pops it out without dragging. In the desktop app the note is a frameless window styled like the main one, so you can drag, dock and close it the same way. In a browser it opens as a popup, which keeps the browser's own frame.
+- **Tracking:** `◎` tracks a task day by day. It gets a round "worked on it today" box and a streak. The Progress button opens a **Month** grid or a **Year** heatmap.
 
 ## Settings and customisation
 
-**Settings** has the theme picker, animation style and length, text cursor, random word prompts, and export/import. Settings close when you click elsewhere.
+**Settings** (docked on the right) has the theme dropdown, animation style and length, text cursor, random word prompts, and export/import. Clicking elsewhere closes it.
 
-**Customise themes…** opens the editor. Built-in themes are read-only, so duplicate one to change it. Edits apply live.
+**Customise theme…** opens the editor, docked where Settings is. It edits the active theme. Built-in themes are read-only, so duplicate one to change it. Edits apply live.
 
 - **Colours:** background, panels, text, muted text, borders, hover, accent and second accent.
-- **Type:** font (each name is shown in its own font), text size, uppercase headings.
+- **Type:** font (the full list, each name drawn in its own font), text size, uppercase headings.
 - **Shape:** corner radius, buttons (square, soft or pill), row spacing, panel opacity, glass blur.
 - **Effects:** glow, shadow, grid background, scanlines.
 - **Motion:** animation style, length, and text cursor. Picking a theme applies its motion and cursor too.
 
-Built-in themes: Light, Dark, Sepia (default), Midnight, Forest, Nord, Dracula, Solarized, Rosé, Terminal, Vaporwave, Cyberpunk. Examples to start from: **Codey** (technical, square corners, coder cursor), **Supersmooth** (slow, round, see-through panels and a glass blur) and **Retro** (N64-style, chunky, grid and scanlines).
+Built-in themes: **Default** (the Sepia look with the mono font), **Supersmooth** (pale, round, see-through panels, very slow animation), **Retro** (N64-style, chunky, uppercase, grid and scanlines) and **Terminal** (green on black).
 
 **Animation styles:** Off, Chess (smooth), 1964 (stepped and retro), Arcade (springy, with pops and sparks). Animation length scales them all from 50% to 250%.
 

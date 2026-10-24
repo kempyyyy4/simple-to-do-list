@@ -58,9 +58,8 @@
 
   <section id="settings" class="settings" hidden>
     <div class="set-group">
-      <span class="set-title">Theme</span>
-      <div id="themePick"></div>
-      <button id="openCustomise" class="wide-btn">Customise themes…</button>
+      <label>Theme <select id="theme"></select></label>
+      <button id="openCustomise" class="wide-btn">Customise theme…</button>
     </div>
     <div class="set-group">
       <span class="set-title">Motion</span>
@@ -92,22 +91,17 @@
   </section>
 
   <section id="customise" class="cust" hidden>
-    <div class="cust-bar">
-      <span>Customisation</span>
+    <div class="cust-head">
+      <strong id="custTitle">Customise</strong>
       <button id="custClose" aria-label="Close">✕</button>
     </div>
-    <div class="cust-body">
-      <aside class="cust-list">
-        <div class="cust-actions">
-          <button data-act="new">New</button>
-          <button data-act="dup">Duplicate</button>
-          <button data-act="rename">Rename</button>
-          <button data-act="delete">Delete</button>
-        </div>
-        <div id="custCards" class="cust-cards"></div>
-      </aside>
-      <div id="custEditor" class="cust-editor"></div>
+    <div class="cust-actions">
+      <button data-act="new">New</button>
+      <button data-act="dup">Duplicate</button>
+      <button data-act="rename">Rename</button>
+      <button data-act="delete">Delete</button>
     </div>
+    <div id="custEditor"></div>
   </section>
 
   <section id="noteWin" class="note-win" hidden>
@@ -128,7 +122,6 @@
   </section>
 
   <script src="themes.js"></script>
-  <script src="picker.js"></script>
   <script src="caret.js"></script>
   <script src="pong.js"></script>
   <script src="reminders.js"></script>

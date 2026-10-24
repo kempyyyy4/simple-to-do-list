@@ -3,7 +3,7 @@
 
   const {
     BUILTIN_THEMES, DEFAULT_THEME_ID, WORDS, applyTheme, normalizeTheme, fontStack,
-    Caret, Pong, Notes, Reminders, Customise, Picker,
+    Caret, Pong, Notes, Reminders, Customise,
   } = window.Todo;
 
   // Motion presets. Durations are base values in ms; the Animation length setting scales them.
@@ -34,6 +34,8 @@
 
   const KEY = 'todo-state-v2';
   const DEFAULT_SETTINGS = { themeId: DEFAULT_THEME_ID, anim: 'chess', speed: 1, caret: 'default', words: true };
+  // Theme ids that were renamed or removed.
+  const THEME_ALIASES = { sepia: 'default' };
 
   const desktop = window.desktop; // only present inside the Electron app
   const detachedId = new URLSearchParams(location.search).get('note'); // set in a popped-out note window
@@ -88,6 +90,7 @@
       if (s[key] !== undefined) settings[key] = s[key];
     }
     if (!s.themeId && s.theme) settings.themeId = s.theme; // first version stored the theme as "theme"
+    settings.themeId = THEME_ALIASES[settings.themeId] || settings.themeId;
 
     customThemes = (raw.themes || []).map(t => normalizeTheme(t, false));
     inbox = raw.inbox || [];
@@ -105,26 +108,71 @@
     return { tree: root, settings, themes: customThemes, inbox };
   }
 
-  function save() {
+  // Saves are batched. Typing used to write the whole file on every key, which made things sluggish.
+  let saveTimer = null;
+  let dirty = false;
+
+  function persist() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    if (!dirty) return;
+    dirty = false;
     if (desktop) desktop.saveData(snapshot());
     else writeJSON(KEY, snapshot());
   }
 
-  // Keeps other windows in step. Electron's main process relays saves; browsers fire a storage event.
-  if (desktop) {
-    desktop.onState(data => { adopt(data); refreshAll(); });
-  } else {
-    window.addEventListener('storage', e => {
-      if (e.key === KEY && e.newValue) {
-        adopt(JSON.parse(e.newValue));
+  function save() {
+    dirty = true;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persist, 250);
+  }
+
+  // Other windows can change the saved data while this one is being edited.
+  // Wait until focus leaves the editable field, so typing never gets overwritten.
+  let pending = null;
+
+  function isEditing() {
+    const a = document.activeElement;
+    return Boolean(a && (a.isContentEditable || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT'));
+  }
+
+  function onExternal(data) {
+    if (isEditing()) {
+      pending = data;
+      return;
+    }
+    adopt(data);
+    refreshAll();
+  }
+
+  document.addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (!pending || isEditing()) return;
+      const data = pending;
+      pending = null;
+      if (dirty) persist(); // our own unsaved edits are newer, so keep them
+      else {
+        adopt(data);
         refreshAll();
       }
+    }, 0);
+  });
+
+  if (desktop) {
+    desktop.onState(onExternal);
+  } else {
+    window.addEventListener('storage', e => {
+      if (e.key === KEY && e.newValue) onExternal(JSON.parse(e.newValue));
     });
   }
-  // The main window saves synchronously on close so the last change always lands on disk.
-  if (desktop && !detachedId) {
-    window.addEventListener('pagehide', () => desktop.saveDataSync(snapshot()));
-  }
+  // Flush any unsaved change when a window closes, so the last edit always lands on disk.
+  window.addEventListener('pagehide', () => {
+    if (!dirty) return;
+    dirty = false;
+    clearTimeout(saveTimer);
+    if (desktop) desktop.saveDataSync(snapshot());
+    else writeJSON(KEY, snapshot());
+  });
 
   const themes = () => [...BUILTIN_THEMES, ...customThemes];
   const activeTheme = () => themes().find(t => t.id === settings.themeId) || BUILTIN_THEMES.find(t => t.id === DEFAULT_THEME_ID);
@@ -182,7 +230,14 @@
 
   // ---- Apply and sync ----------------------------------------------------
 
+  // --k scales every CSS transition. It is 0 when animation is off, so changes are instant.
+  function applyScale(value) {
+    const k = value ?? (settings.anim === 'off' ? '0' : String(settings.speed));
+    document.documentElement.style.setProperty('--k', String(k));
+  }
+
   function syncSettingsControls() {
+    $('theme').value = settings.themeId;
     $('anim').value = settings.anim;
     $('speed').value = settings.speed;
     $('speedVal').textContent = `${Math.round(settings.speed * 100)}%`;
@@ -190,13 +245,16 @@
     $('words').checked = settings.words;
   }
 
+  function fillThemeSelect() {
+    $('theme').replaceChildren(...themes().map(t => new Option(t.name, t.id)));
+  }
+
   function applyAll() {
     applyTheme(activeTheme());
-    const html = document.documentElement;
-    html.dataset.anim = settings.anim;
-    // --k scales every CSS transition. It is 0 when animation is off, so changes are instant.
-    html.style.setProperty('--k', settings.anim === 'off' ? '0' : String(settings.speed));
+    document.documentElement.dataset.anim = settings.anim;
+    applyScale();
     Caret.setStyle(settings.caret);
+    fillThemeSelect();
     syncSettingsControls();
   }
 
@@ -206,14 +264,19 @@
     save();
   }
 
-  // Picks a theme and takes on its motion and cursor. Settings can still change them afterwards.
-  function activate(id) {
-    settings.themeId = id;
+  // Takes a theme's motion and cursor into Settings. Settings can still change them afterwards.
+  function applyMotion() {
     const t = activeTheme();
     settings.anim = t.motion.anim;
     settings.speed = t.motion.speed;
     settings.caret = t.motion.caret;
     touch();
+  }
+
+  function activate(id) {
+    settings.themeId = id;
+    applyMotion();
+    Customise.refresh();
   }
 
   function refreshAll() {
@@ -362,7 +425,9 @@
 
   // ---- Notes -------------------------------------------------------------
 
+  // Opens a note as its own window at (x, y). In the desktop app it's a frameless window.
   function popOutNote(id, x, y) {
+    persist();
     if (desktop) {
       desktop.openNote(id, x, y);
       return;
@@ -371,9 +436,15 @@
     window.open(
       `${base}?note=${encodeURIComponent(id)}`,
       `note-${id}`,
-      `popup=yes,width=420,height=540,left=${Math.max(0, Math.round(x - 40))},top=${Math.max(0, Math.round(y - 16))}`,
+      `popup=yes,width=500,height=640,left=${Math.max(0, Math.round(x - 40))},top=${Math.max(0, Math.round(y - 16))}`,
     );
   }
+
+  // Desktop only: the new window follows the cursor until the drag ends.
+  const tearOff = desktop ? {
+    start: (id, offX, offY, w, h) => { persist(); desktop.tearStart({ id, offX, offY, w, h }); },
+    end: () => desktop.tearEnd(),
+  } : null;
 
   const noteOptions = () => ({
     getNode: findById,
@@ -383,6 +454,7 @@
       return { dur: M.dur, ease: M.ease };
     },
     onPopOut: popOutNote,
+    tearOff,
     detached: Boolean(detachedId),
     closeWindow: () => (desktop ? desktop.close() : window.close()),
   });
@@ -799,27 +871,12 @@
 
   // ---- Settings ----------------------------------------------------------
 
-  let themePicker = null;
-  function mountThemePicker() {
-    themePicker = Picker.create({
-      items: themes().map(t => ({
-        value: t.id,
-        label: t.name,
-        swatch: [t.colors.bg, t.colors.panel, t.colors.accent, t.colors.accent2, t.colors.fg],
-        style: `font-family: ${fontStack(t.font)}`,
-      })),
-      value: settings.themeId,
-      onChange: id => activate(id),
-    });
-    $('themePick').replaceChildren(themePicker.el);
-  }
-
   function toggleSettings(force) {
     const panel = $('settings');
     const show = force ?? panel.hidden;
     panel.hidden = !show;
     if (show) {
-      mountThemePicker();
+      applyAll();
       const M = timing();
       if (M.dur) {
         panel.animate(
@@ -838,6 +895,7 @@
     toggleSettings(false);
   });
 
+  $('theme').onchange = e => activate(e.target.value);
   $('anim').onchange = e => { settings.anim = e.target.value; touch(); };
   $('speed').oninput = e => { settings.speed = Number(e.target.value); touch(); };
   $('caret').onchange = e => { settings.caret = e.target.value; touch(); };
@@ -846,12 +904,14 @@
     touch();
     startWords();
   };
+  // Customisation docks where Settings is, so the two never open together.
   $('openCustomise').onclick = () => {
     toggleSettings(false);
     Customise.open();
   };
 
   $('exportBtn').onclick = () => {
+    persist();
     const blob = new Blob([JSON.stringify(snapshot(), null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -881,6 +941,7 @@
     themes,
     activeId: () => settings.themeId,
     activate,
+    applyMotion,
     addCustom: theme => {
       customThemes.push(theme);
       activate(theme.id);
@@ -893,6 +954,10 @@
     touch,
     motion: timing,
   });
+
+  // Exposed for the customisation editor, which turns transitions off while a slider is dragged.
+  window.Todo.setScale = v => applyScale(v);
+  window.Todo.applyScale = () => applyScale();
 
   // Desktop-only controls (exposed by preload.js in the Electron build).
   if (desktop) {
@@ -911,11 +976,15 @@
   // ---- Start -------------------------------------------------------------
 
   adopt(loadInitial());
-  if (!detachedId) save(); // writes the current format, including any migrated data
+  if (!detachedId) {
+    dirty = true;
+    persist(); // writes the current format, including any migrated data
+  }
   applyAll();
   startWords();
   render();
   if (detachedId) {
+    document.documentElement.classList.add('detached');
     document.body.classList.add('detached');
     Notes.open(detachedId, noteOptions());
   } else {

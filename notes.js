@@ -291,6 +291,7 @@
     nodeId = id;
     opts = options;
     popBtn.hidden = Boolean(opts.detached);
+    win.style.visibility = '';
     win.classList.toggle('detached-note', Boolean(opts.detached));
     refresh();
     if (!node) return;
@@ -325,15 +326,26 @@
     };
   });
 
-  // Dragging by the title bar. Letting go outside the app window pops the note out.
+  // Dragging by the title bar. Dragging out of the app window tears the note off into its own window.
   const bar = win.querySelector('.note-bar');
+  const isOutside = ev => ev.clientX < 0 || ev.clientY < 0 || ev.clientX > window.innerWidth || ev.clientY > window.innerHeight;
   bar.addEventListener('pointerdown', e => {
     if (e.target.closest('button') || opts?.detached) return;
     const rect = win.getBoundingClientRect();
     const offX = e.clientX - rect.left;
     const offY = e.clientY - rect.top;
+    const tear = opts.tearOff;
+    let torn = false;
     bar.setPointerCapture(e.pointerId);
     const move = ev => {
+      if (torn) return;
+      if (tear && isOutside(ev)) {
+        // The new window takes over the drag, so hide this copy but keep the pointer captured.
+        torn = true;
+        win.style.visibility = 'hidden';
+        tear.start(nodeId, Math.round(offX), Math.round(offY), Math.round(rect.width), Math.round(rect.height));
+        return;
+      }
       win.style.left = `${ev.clientX - offX}px`;
       win.style.top = `${ev.clientY - offY}px`;
       win.style.right = 'auto';
@@ -342,8 +354,12 @@
     const up = ev => {
       bar.removeEventListener('pointermove', move);
       bar.removeEventListener('pointerup', up);
-      const outside = ev.clientX < 0 || ev.clientY < 0 || ev.clientX > window.innerWidth || ev.clientY > window.innerHeight;
-      if (outside && opts?.onPopOut) popOut(ev.screenX, ev.screenY);
+      if (torn) {
+        tear.end();
+        close();
+        return;
+      }
+      if (isOutside(ev) && opts?.onPopOut) popOut(ev.screenX, ev.screenY);
     };
     bar.addEventListener('pointermove', move);
     bar.addEventListener('pointerup', up);

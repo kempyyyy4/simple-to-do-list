@@ -8,4 +8,6 @@ contextBridge.exposeInMainWorld('desktop', {
   saveDataSync: data => ipcRenderer.sendSync('data-save', data),
   onState: callback => ipcRenderer.on('state-update', (_event, data) => callback(data)),
   openNote: (id, x, y) => ipcRenderer.send('open-note-window', { id, x, y }),
+  tearStart: payload => ipcRenderer.send('tear-start', payload),
+  tearEnd: () => ipcRenderer.send('tear-end'),
 });

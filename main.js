@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
@@ -29,16 +29,19 @@ function writeData(data) {
   fs.renameSync(tmp, file); // swap in the new file in one step, so a crash can't leave half a file
 }
 
-function createWindow({ width, height, x, y, minWidth = 260, minHeight = 220, query, frame = false }) {
+// Notes are transparent and frameless so their edges follow the theme's corners.
+function createWindow({ width, height, x, y, minWidth = 260, minHeight = 220, query, note = false }) {
   const win = new BrowserWindow({
     width,
     height,
     minWidth,
     minHeight,
-    ...(x != null ? { x, y } : {}),
-    frame,
+    ...(x != null ? { x: Math.round(x), y: Math.round(y) } : {}),
+    frame: false,
+    transparent: note,
+    ...(note ? {} : { backgroundColor: '#f4ecd8' }),
     title: 'To-do',
-    backgroundColor: '#f4ecd8',
+    skipTaskbar: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
@@ -68,15 +71,48 @@ ipcMain.on('data-save', (event, data) => {
 
 ipcMain.on('open-note-window', (_event, { id, x, y }) => {
   createWindow({
-    width: 400,
-    height: 520,
-    minWidth: 280,
-    minHeight: 240,
-    x: Math.round(x - 40),
-    y: Math.round(y - 16),
+    width: 500,
+    height: 640,
+    minWidth: 300,
+    minHeight: 260,
+    x: x - 40,
+    y: y - 16,
     query: { note: id },
+    note: true,
   });
 });
+
+// A note torn out of the app: the new window follows the cursor until the mouse is released.
+let tearTimer = null;
+
+function stopTear() {
+  clearInterval(tearTimer);
+  tearTimer = null;
+}
+
+ipcMain.on('tear-start', (_event, { id, offX, offY, w, h }) => {
+  const cursor = screen.getCursorScreenPoint();
+  const win = createWindow({
+    width: w,
+    height: h,
+    x: cursor.x - offX,
+    y: cursor.y - offY,
+    query: { note: id },
+    note: true,
+    minWidth: 300,
+    minHeight: 260,
+  });
+  stopTear();
+  const started = Date.now();
+  tearTimer = setInterval(() => {
+    // Give up after 20 seconds if the release never arrived.
+    if (win.isDestroyed() || Date.now() - started > 20000) return stopTear();
+    const p = screen.getCursorScreenPoint();
+    win.setPosition(Math.round(p.x - offX), Math.round(p.y - offY));
+  }, 16);
+});
+
+ipcMain.on('tear-end', () => stopTear());
 
 ipcMain.on('set-always-on-top', (event, value) => {
   BrowserWindow.fromWebContents(event.sender)?.setAlwaysOnTop(Boolean(value));
