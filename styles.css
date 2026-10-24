@@ -95,8 +95,6 @@ main { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 18px 20px 40px; p
   transition: border-color calc(0.4s * var(--k)) ease, box-shadow calc(0.5s * var(--k)) ease;
 }
 .add:focus, .text:focus, .nb-input:focus { border-color: var(--accent); box-shadow: var(--glow); }
-.shuffle { padding: 6px 9px; font-size: 1.1em; border: 1px solid var(--border); }
-.shuffle:hover { transform: rotate(40deg); }
 .kind { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; flex: none; }
 .kind button { border-radius: 0; padding: 7px 10px; font-size: 0.87em; }
 .kind button.active { background: var(--accent); color: var(--panel); }
@@ -178,7 +176,13 @@ html[data-glass="true"] .tray, html[data-glass="true"] .rem-pop {
   max-height: calc(100% - 64px); overflow-y: auto;
   border-radius: calc(var(--radius) * 1.5);
 }
-.settings { width: 300px; padding: 14px; display: grid; gap: 14px; font-size: 0.87em; }
+.cog {
+  position: fixed; right: 12px; bottom: 12px; z-index: 6; width: 34px; height: 34px;
+  display: grid; place-items: center; font-size: 17px; line-height: 1;
+  border: 1px solid var(--border); border-radius: 50%; background: var(--panel-bg); color: var(--fg);
+  box-shadow: var(--shadow); -webkit-app-region: no-drag;
+}
+.settings { position: fixed; top: auto; right: 12px; bottom: 56px; width: 300px; padding: 14px; display: grid; gap: 14px; font-size: 0.87em; }
 .set-group { display: grid; gap: 8px; }
 .set-title { font-weight: 600; color: var(--fg); font-size: 0.9em; }
 .settings label { display: grid; gap: 4px; color: var(--muted); }
@@ -299,7 +303,7 @@ html[data-glass="true"] .tray, html[data-glass="true"] .rem-pop {
 .rem-empty { color: var(--muted); }
 
 .tray {
-  position: fixed; right: 14px; bottom: 14px; width: max-content; z-index: 12;
+  position: fixed; right: 14px; bottom: 56px; width: max-content; z-index: 12;
   border-radius: calc(var(--radius) * 1.4); overflow: hidden; font-size: 0.87em;
 }
 .tray-bar {
@@ -437,10 +441,9 @@ html.detached .note-bar { -webkit-app-region: drag; cursor: move; }
 .caret[data-style="smooth"] {
   transition: left calc(0.16s * var(--k)) cubic-bezier(0.2, 0.8, 0.2, 1),
     top calc(0.16s * var(--k)) cubic-bezier(0.2, 0.8, 0.2, 1);
-  animation: caret-smooth 1.3s ease-in-out infinite;
 }
+.caret.instant { transition: none !important; }
 @keyframes caret-block { 0%, 49% { opacity: 0.6; } 50%, 100% { opacity: 0; } }
-@keyframes caret-smooth { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
 
 /* ---- Theme extras: grid, scanlines, uppercase headings ------------------- */
 /* Scanlines are a static pattern. Animating them repaints the whole screen every frame. */

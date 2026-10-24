@@ -771,6 +771,7 @@
   function go(newPath, dir) {
     path = newPath;
     view = 'list';
+    setKind('task');
     ui.nav = dir;
     ui.focusAdd = true;
     render();
@@ -796,16 +797,6 @@
     setPlaceholder(randomWord());
     wordTimer = setInterval(() => setPlaceholder(randomWord()), 6000);
   }
-
-  $('shuffleBtn').onclick = () => {
-    const add = $('add');
-    add.value = randomWord();
-    add.focus();
-    add.animate(
-      [{ transform: 'rotate(-1.5deg)' }, { transform: 'rotate(1deg)' }, { transform: 'none' }],
-      { duration: 360 * settings.speed, easing: 'ease-out' },
-    );
-  };
 
   // ---- Wiring ------------------------------------------------------------
 
@@ -834,11 +825,14 @@
     render();
   };
 
+  function setKind(next) {
+    kind = next;
+    document.querySelectorAll('.kind button').forEach(b => b.classList.toggle('active', b.dataset.kind === next));
+    if (!settings.words) startWords();
+  }
   document.querySelectorAll('.kind button').forEach(btn => {
     btn.onclick = () => {
-      kind = btn.dataset.kind;
-      document.querySelectorAll('.kind button').forEach(b => b.classList.toggle('active', b === btn));
-      if (!settings.words) startWords();
+      setKind(btn.dataset.kind);
       $('add').focus();
     };
   });

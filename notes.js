@@ -153,7 +153,7 @@
     pinBtn.hidden = !canPin;
     pinned = false;
     pinBtn.classList.remove('on');
-    win.style.visibility = '';
+    win.style.opacity = '';
     win.classList.toggle('detached-note', Boolean(opts.detached));
     refresh();
     if (!node) return;
@@ -203,7 +203,7 @@
       if (tear && isOutside(ev)) {
         // The new window takes over the drag, so hide this copy but keep the pointer captured.
         torn = true;
-        win.style.visibility = 'hidden';
+        win.style.opacity = '0';
         tear.start(nodeId, Math.round(offX), Math.round(offY), Math.round(rect.width), Math.round(rect.height));
         return;
       }

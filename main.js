@@ -102,6 +102,7 @@ ipcMain.on('tear-start', (_event, { id, offX, offY, w, h }) => {
     minWidth: 300,
     minHeight: 260,
   });
+  win.once('ready-to-show', () => win.focus());
   stopTear();
   const started = Date.now();
   tearTimer = setInterval(() => {

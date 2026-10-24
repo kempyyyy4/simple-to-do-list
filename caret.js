@@ -41,12 +41,17 @@
       return;
     }
     const p = position(target);
+    const wasHidden = caret.hidden;
     caret.hidden = false;
     caret.dataset.style = style;
     caret.style.left = `${p.x}px`;
     caret.style.top = `${p.y}px`;
     caret.style.height = `${p.h}px`;
     caret.style.width = style === 'coder' ? `${p.w}px` : '2px';
+    if (wasHidden) {
+      caret.classList.add('instant');
+      requestAnimationFrame(() => requestAnimationFrame(() => caret.classList.remove('instant')));
+    }
   }
 
   function setTargetCaret(input, hide) {

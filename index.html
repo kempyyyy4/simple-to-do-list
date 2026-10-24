@@ -14,7 +14,6 @@
     <div class="tools">
       <button id="progressBtn" class="tool" title="Progress calendar">Progress</button>
       <button id="pinBtn" class="tool" title="Keep on top" hidden>Pin</button>
-      <button id="settingsBtn" class="tool" title="Settings">Settings</button>
       <button id="closeBtn" class="tool" title="Close" hidden>✕</button>
     </div>
   </header>
@@ -25,7 +24,6 @@
 
       <div class="composer">
         <input id="add" class="add" placeholder="New task, Enter to add" autocomplete="off">
-        <button id="shuffleBtn" class="shuffle" title="Random idea" aria-label="Random idea">⟳</button>
         <div class="kind" role="group" aria-label="New item type">
           <button class="active" data-kind="task">Task</button>
           <button data-kind="folder">Folder</button>
@@ -55,6 +53,8 @@
       <p id="trackEmpty" class="empty" hidden>No tracked tasks yet. Click ◎ on a task to track it day by day.</p>
     </section>
   </main>
+
+  <button id="settingsBtn" class="cog" title="Settings" aria-label="Settings">⚙</button>
 
   <section id="settings" class="settings" hidden>
     <div class="set-group">
