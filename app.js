@@ -1,35 +1,40 @@
 (() => {
   'use strict';
 
-  // Motion presets. Each one drives both the JS animations and the CSS easing.
+  const { THEMES, FONTS, WORDS, Caret, Pong, Notes } = window.Todo;
+
+  // Motion presets. Durations are base values in ms; the Duration setting scales them.
   const MOTION = {
     off: { dur: 0, ease: 'linear', enter: [], exit: [], nav: 0, pop: false, burst: false },
     chess: {
-      dur: 240, ease: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
-      enter: [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }],
-      exit: [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-24px)' }],
-      nav: 16, pop: false, burst: false,
+      dur: 420, ease: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+      enter: [{ opacity: 0, transform: 'translateY(-8px)' }, { opacity: 1, transform: 'none' }],
+      exit: [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-28px)' }],
+      nav: 22, pop: false, burst: false,
     },
     retro: {
-      dur: 480, ease: 'steps(6, end)',
-      enter: [{ opacity: 0, transform: 'translateX(-30px)' }, { opacity: 1, transform: 'none' }],
-      exit: [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(30px)' }],
-      nav: 30, pop: false, burst: false,
+      dur: 760, ease: 'steps(8, end)',
+      enter: [{ opacity: 0, transform: 'translateX(-36px)' }, { opacity: 1, transform: 'none' }],
+      exit: [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(36px)' }],
+      nav: 36, pop: false, burst: false,
     },
     arcade: {
-      dur: 380, ease: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-      enter: [{ opacity: 0, transform: 'translateY(-14px) scale(0.92)' }, { opacity: 1, transform: 'none' }],
+      dur: 640, ease: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+      enter: [{ opacity: 0, transform: 'translateY(-16px) scale(0.92)' }, { opacity: 1, transform: 'none' }],
       exit: [
         { transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' },
         { transform: 'translateX(-4px)' }, { transform: 'scale(0.9)', opacity: 0 },
       ],
-      nav: 26, pop: true, burst: true,
+      nav: 30, pop: true, burst: true,
     },
   };
 
   const LS_TREE = 'todo-tree-v1';
   const LS_SETTINGS = 'todo-settings-v1';
-  const DEFAULT_SETTINGS = { theme: 'sepia', font: 'mono', anim: 'chess', accent: null };
+  const DEFAULT_SETTINGS = {
+    theme: 'sepia', font: 'mono', size: 'medium', density: 'comfy', corners: 'soft',
+    anim: 'chess', speed: 1, caret: 'default', words: true, accent: null,
+  };
 
   const desktop = window.desktop; // only present inside the Electron app
 
@@ -42,9 +47,7 @@
   };
   const uid = () => Math.random().toString(36).slice(2, 10);
   const newNode = (type, text = '') => ({ id: uid(), type, text, done: false, tracked: false, log: {}, children: [] });
-  const motion = () => MOTION[settings.anim] || MOTION.chess;
 
-  // Local date as YYYY-MM-DD, so a day ticks over at local midnight.
   const pad = n => String(n).padStart(2, '0');
   const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
@@ -82,12 +85,21 @@
   // Flush synchronously when the window closes, so the last change always lands on disk.
   if (desktop) window.addEventListener('pagehide', () => desktop.saveDataSync({ tree: root, settings }));
 
+  const motion = () => MOTION[settings.anim] || MOTION.chess;
+  // Motion with the Duration setting applied. Used by the JS animations.
+  const timing = () => {
+    const M = motion();
+    return { ...M, dur: M.dur * settings.speed };
+  };
+
   let todayKey = keyOf(new Date());
   let path = [];                  // ids from the root down to the list being viewed
   let view = 'list';              // 'list' or 'progress'
   let kind = 'task';              // what the composer creates: 'task' or 'folder'
+  let mode = 'month';             // progress view: 'month' or 'year'
   const now = new Date();
   let viewMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  let viewYear = now.getFullYear();
 
   // One-shot UI flags, consumed by the next render.
   // `after` holds animations that must wait until the new rows are in the page.
@@ -109,7 +121,7 @@
   // ---- Animation helpers -------------------------------------------------
 
   function animateIn(target) {
-    const M = motion();
+    const M = timing();
     if (M.dur) target.animate(M.enter, { duration: M.dur, easing: M.ease });
   }
 
@@ -123,28 +135,30 @@
       ui.focus = nextFocus || null;
       render();
     };
-    const M = motion();
+    const M = timing();
     if (!M.dur) return finish();
     li.animate(M.exit, { duration: M.dur, easing: M.ease, fill: 'forwards' }).finished.then(finish, finish);
   }
 
   function pop(target) {
-    if (motion().pop) {
+    const M = timing();
+    if (M.pop) {
       target.animate(
         [{ transform: 'scale(0.7)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }],
-        { duration: 420, easing: 'ease-out' },
+        { duration: 520 * settings.speed, easing: 'ease-out' },
       );
     }
   }
 
   // Arcade only: a burst of sparks from a checkbox.
   function celebrate(target) {
-    if (!motion().burst) return;
+    if (!timing().burst) return;
     const rect = target.getBoundingClientRect();
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    const accent2 = getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim() || accent;
+    const styles = getComputedStyle(document.documentElement);
+    const accent = styles.getPropertyValue('--accent').trim();
+    const accent2 = styles.getPropertyValue('--accent2').trim() || accent;
     const colours = [accent, accent2, '#ffffff'];
     for (let i = 0; i < 18; i++) {
       const spark = el('span', 'spark');
@@ -161,7 +175,7 @@
           { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
           { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.4) rotate(${dx * 4}deg)`, opacity: 0 },
         ],
-        { duration: 650 + Math.random() * 250, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' },
+        { duration: (900 + Math.random() * 350) * settings.speed, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' },
       ).onfinish = () => spark.remove();
     }
   }
@@ -195,6 +209,10 @@
     return out;
   }
 
+  function hasNote(node) {
+    return Boolean(node.note?.blocks?.some(b => b.type !== 'text' || (b.text && b.text.trim())));
+  }
+
   // Keeps "today" in step with the clock, so the app is right after midnight or a wake-up.
   function checkDay() {
     const key = keyOf(new Date());
@@ -208,6 +226,19 @@
 
   // ---- Rendering ---------------------------------------------------------
 
+  // Tapping "All tasks" five times quickly in 1964 mode opens the easter egg.
+  let eggTaps = [];
+  function tapEgg() {
+    if (settings.anim !== 'retro') return;
+    const t = Date.now();
+    eggTaps = eggTaps.filter(x => t - x < 1500);
+    eggTaps.push(t);
+    if (eggTaps.length >= 5) {
+      eggTaps = [];
+      Pong.start();
+    }
+  }
+
   function renderCrumbs(nodes) {
     const crumbs = $('crumbs');
     crumbs.textContent = '';
@@ -215,7 +246,10 @@
       if (i > 0) crumbs.append(el('span', 'sep', '/'));
       const isLast = i === nodes.length - 1;
       const btn = el('button', isLast ? 'current' : '', i === 0 ? 'All tasks' : (node.text || 'Untitled'));
-      btn.onclick = () => go(nodes.slice(1, i + 1).map(n => n.id), isLast ? 0 : -1);
+      btn.onclick = () => {
+        if (i === 0) tapEgg();
+        go(nodes.slice(1, i + 1).map(n => n.id), isLast ? 0 : -1);
+      };
       crumbs.append(btn);
     });
   }
@@ -289,6 +323,11 @@
       li.append(track);
     }
 
+    const note = el('button', `note${hasNote(node) ? ' on' : ''}`, '✎');
+    note.title = 'Open note';
+    note.onclick = () => Notes.open(node, node.text || 'Untitled', save, timing);
+    li.append(note);
+
     const open = el('button', 'open');
     open.title = isFolder ? 'Open folder' : 'Open sub-list';
     open.append(el('span', 'count', node.children.length ? String(node.children.length) : ''), '›');
@@ -318,16 +357,18 @@
     $('summary').textContent = parts.join(' · ');
   }
 
-  function renderProgress() {
+  // Tick or untick a day from the progress grid, then redraw.
+  function toggleDay(node, key) {
+    if (key > todayKey) return;
+    setDay(node, key, !node.log[key]);
+    render();
+  }
+
+  function renderMonth(tracked) {
     const y = viewMonth.getFullYear();
     const m = viewMonth.getMonth();
     const days = new Date(y, m + 1, 0).getDate();
     const monthPrefix = `${y}-${pad(m + 1)}-`;
-    $('monthLabel').textContent = viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-
-    const tracked = collectTracked(root);
-    $('trackEmpty').hidden = tracked.length > 0;
-    $('gridWrap').hidden = tracked.length === 0;
 
     const grid = $('grid');
     grid.textContent = '';
@@ -358,18 +399,13 @@
       for (let d = 1; d <= days; d++) {
         const key = `${monthPrefix}${pad(d)}`;
         const on = Boolean(node.log[key]);
-        const future = key > todayKey;
         const cell = el('td', 'cell');
         if (on) cell.classList.add('on');
         if (key === todayKey) cell.classList.add('today');
-        if (future) cell.classList.add('future');
+        if (key > todayKey) cell.classList.add('future');
         const btn = el('button');
         btn.title = `${label} · ${key}`;
-        btn.onclick = () => {
-          if (future) return;
-          setDay(node, key, !on);
-          render();
-        };
+        btn.onclick = () => toggleDay(node, key);
         cell.append(btn);
         tr.append(cell);
       }
@@ -384,6 +420,61 @@
         wrap.scrollLeft += offset - wrap.clientWidth / 2;
       });
     }
+  }
+
+  // One row per tracked task, with a square for each day of the year, weeks running across.
+  function renderYear(tracked) {
+    const y = viewYear;
+    const start = new Date(y, 0, 1);
+    const daysInYear = Math.round((new Date(y + 1, 0, 1) - start) / 86400000);
+    const lead = start.getDay();
+    const columns = Math.ceil((lead + daysInYear) / 7);
+    const wrap = $('yearWrap');
+    wrap.textContent = '';
+
+    for (const { node, label } of tracked) {
+      const row = el('div', 'year-row');
+      const name = el('div', 'year-label');
+      name.append(el('span', 'label', label));
+      const yearCount = Object.keys(node.log).filter(k => k.startsWith(`${y}-`)).length;
+      name.append(el('span', 'meta', `${streakOf(node)}d streak · ${yearCount} this year`));
+
+      const grid = el('div', 'year-grid');
+      grid.style.gridTemplateColumns = `repeat(${columns}, var(--cell))`;
+      for (let i = 0; i < columns * 7; i++) {
+        const offset = i - lead;
+        const cell = el('button', 'yd');
+        if (offset < 0 || offset >= daysInYear) {
+          cell.classList.add('blank');
+          cell.disabled = true;
+        } else {
+          const key = keyOf(new Date(y, 0, 1 + offset));
+          if (node.log[key]) cell.classList.add('on');
+          if (key === todayKey) cell.classList.add('today');
+          if (key > todayKey) cell.classList.add('future');
+          cell.title = key;
+          cell.onclick = () => toggleDay(node, key);
+        }
+        grid.append(cell);
+      }
+      row.append(name, grid);
+      wrap.append(row);
+    }
+  }
+
+  function renderProgress() {
+    const tracked = collectTracked(root);
+    $('trackEmpty').hidden = tracked.length > 0;
+    const isYear = mode === 'year';
+    $('periodLabel').textContent = isYear
+      ? String(viewYear)
+      : viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    $('modeMonth').classList.toggle('active', !isYear);
+    $('modeYear').classList.toggle('active', isYear);
+    $('gridWrap').hidden = isYear || tracked.length === 0;
+    $('yearWrap').hidden = !isYear || tracked.length === 0;
+    if (isYear) renderYear(tracked);
+    else renderMonth(tracked);
   }
 
   function render() {
@@ -405,7 +496,7 @@
     if (view === 'list') renderList(current);
     else renderProgress();
 
-    const M = motion();
+    const M = timing();
     if (dir && M.nav) {
       const section = view === 'list' ? $('listView') : $('progressView');
       section.animate(
@@ -439,6 +530,37 @@
     render();
   }
 
+  // ---- Composer and prompts ----------------------------------------------
+
+  let wordTimer = null;
+  const randomWord = () => WORDS[Math.floor(Math.random() * WORDS.length)];
+
+  function setPlaceholder(text) {
+    const add = $('add');
+    add.placeholder = text;
+    add.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 500 * settings.speed, easing: 'ease-out' });
+  }
+
+  function startWords() {
+    clearInterval(wordTimer);
+    if (!settings.words) {
+      setPlaceholder(kind === 'folder' ? 'New folder, Enter to add' : 'New task, Enter to add');
+      return;
+    }
+    setPlaceholder(randomWord());
+    wordTimer = setInterval(() => setPlaceholder(randomWord()), 6000);
+  }
+
+  $('shuffleBtn').onclick = () => {
+    const add = $('add');
+    add.value = randomWord();
+    add.focus();
+    add.animate(
+      [{ transform: 'rotate(-1.5deg)' }, { transform: 'rotate(1deg)' }, { transform: 'none' }],
+      { duration: 360 * settings.speed, easing: 'ease-out' },
+    );
+  };
+
   // ---- Wiring ------------------------------------------------------------
 
   $('pageTitle').oninput = e => {
@@ -470,7 +592,7 @@
     btn.onclick = () => {
       kind = btn.dataset.kind;
       document.querySelectorAll('.kind button').forEach(b => b.classList.toggle('active', b === btn));
-      $('add').placeholder = kind === 'folder' ? 'New folder, Enter to add' : 'New task, Enter to add';
+      if (!settings.words) startWords();
       $('add').focus();
     };
   });
@@ -482,35 +604,63 @@
     checkDay();
     render();
   };
-  $('prevMonth').onclick = () => {
-    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1);
+  $('modeMonth').onclick = () => { mode = 'month'; render(); };
+  $('modeYear').onclick = () => { mode = 'year'; render(); };
+  $('prevPeriod').onclick = () => {
+    if (mode === 'year') viewYear--;
+    else viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1);
     render();
   };
-  $('nextMonth').onclick = () => {
-    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
+  $('nextPeriod').onclick = () => {
+    if (mode === 'year') viewYear++;
+    else viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
     render();
   };
-  $('thisMonth').onclick = () => {
+  $('thisPeriod').onclick = () => {
     const t = new Date();
+    viewYear = t.getFullYear();
     viewMonth = new Date(t.getFullYear(), t.getMonth(), 1);
     render();
   };
 
   // ---- Settings ----------------------------------------------------------
 
+  function fillSelect(select, items) {
+    select.replaceChildren(...items.map(([value, label]) => new Option(label, value)));
+  }
+  fillSelect($('theme'), THEMES.map(t => [t.id, t.label]));
+  fillSelect($('font'), FONTS.map(f => [f.id, f.label]));
+
   function applySettings() {
     const html = document.documentElement;
     html.dataset.theme = settings.theme;
-    html.dataset.font = settings.font;
+    html.dataset.size = settings.size;
+    html.dataset.density = settings.density;
+    html.dataset.corners = settings.corners;
     html.dataset.anim = settings.anim;
+
+    const font = FONTS.find(f => f.id === settings.font) || FONTS[0];
+    html.style.setProperty('--font', font.stack);
+    // --k scales every CSS transition. It is 0 when animation is off, so changes are instant.
+    html.style.setProperty('--k', settings.anim === 'off' ? '0' : String(settings.speed));
+
     if (settings.accent) html.style.setProperty('--accent', settings.accent);
     else html.style.removeProperty('--accent');
-
     const accent = getComputedStyle(html).getPropertyValue('--accent').trim();
+
     $('theme').value = settings.theme;
     $('font').value = settings.font;
+    $('size').value = settings.size;
+    $('density').value = settings.density;
+    $('corners').value = settings.corners;
     $('anim').value = settings.anim;
+    $('speed').value = settings.speed;
+    $('speedVal').textContent = `${Math.round(settings.speed * 100)}%`;
+    $('caret').value = settings.caret;
+    $('words').checked = settings.words;
     $('accent').value = /^#[0-9a-f]{6}$/i.test(accent) ? accent : '#000000';
+
+    Caret.setStyle(settings.caret);
   }
 
   function applyAndSave() {
@@ -522,23 +672,40 @@
     const panel = $('settings');
     const show = force ?? panel.hidden;
     panel.hidden = !show;
-    if (show && motion().dur) {
+    const M = timing();
+    if (show && M.dur) {
       panel.animate(
-        [{ opacity: 0, transform: 'translateY(-8px) scale(0.97)' }, { opacity: 1, transform: 'none' }],
-        { duration: motion().dur, easing: motion().ease },
+        [{ opacity: 0, transform: 'translateY(-10px) scale(0.97)' }, { opacity: 1, transform: 'none' }],
+        { duration: M.dur, easing: M.ease },
       );
     }
   }
 
   $('settingsBtn').onclick = () => toggleSettings();
   document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleSettings(false); });
+  // Clicking anywhere outside the panel closes it.
+  document.addEventListener('pointerdown', e => {
+    if ($('settings').hidden || e.target.closest('#settings, #settingsBtn')) return;
+    toggleSettings(false);
+  });
+
   $('theme').onchange = e => {
     settings.theme = e.target.value;
     settings.accent = null; // each theme keeps its own default accent unless you pick one
     applyAndSave();
   };
   $('font').onchange = e => { settings.font = e.target.value; applyAndSave(); };
+  $('size').onchange = e => { settings.size = e.target.value; applyAndSave(); };
+  $('density').onchange = e => { settings.density = e.target.value; applyAndSave(); };
+  $('corners').onchange = e => { settings.corners = e.target.value; applyAndSave(); };
   $('anim').onchange = e => { settings.anim = e.target.value; applyAndSave(); };
+  $('speed').oninput = e => { settings.speed = Number(e.target.value); applyAndSave(); };
+  $('caret').onchange = e => { settings.caret = e.target.value; applyAndSave(); };
+  $('words').onchange = e => {
+    settings.words = e.target.checked;
+    applyAndSave();
+    startWords();
+  };
   $('accent').oninput = e => { settings.accent = e.target.value; applyAndSave(); };
   $('accentReset').onclick = () => { settings.accent = null; applyAndSave(); };
 
@@ -585,5 +752,6 @@
   }
 
   applySettings();
+  startWords();
   render();
 })();

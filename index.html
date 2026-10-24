@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="sepia" data-font="mono" data-anim="chess">
+<html lang="en" data-theme="sepia" data-font="mono" data-size="medium" data-density="comfy" data-corners="soft" data-anim="chess">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -25,6 +25,7 @@
 
       <div class="composer">
         <input id="add" class="add" placeholder="New task, Enter to add" autocomplete="off">
+        <button id="shuffleBtn" class="shuffle" title="Random idea" aria-label="Random idea">⟳</button>
         <div class="kind" role="group" aria-label="New item type">
           <button class="active" data-kind="task">Task</button>
           <button data-kind="folder">Folder</button>
@@ -38,34 +39,44 @@
 
     <section id="progressView" class="progress" hidden>
       <div class="progress-head">
-        <button id="prevMonth" class="tool" aria-label="Previous month">‹</button>
-        <h2 id="monthLabel"></h2>
-        <button id="nextMonth" class="tool" aria-label="Next month">›</button>
-        <button id="thisMonth" class="tool">Today</button>
+        <button id="prevPeriod" class="tool" aria-label="Previous">‹</button>
+        <h2 id="periodLabel"></h2>
+        <button id="nextPeriod" class="tool" aria-label="Next">›</button>
+        <button id="thisPeriod" class="tool">Today</button>
+      </div>
+      <div class="seg">
+        <button id="modeMonth" class="active">Month</button>
+        <button id="modeYear">Year</button>
       </div>
       <div id="gridWrap" class="grid-wrap">
         <table id="grid" class="grid"></table>
       </div>
+      <div id="yearWrap" class="year-wrap" hidden></div>
       <p id="trackEmpty" class="empty" hidden>No tracked tasks yet. Click ◎ on a task to track it day by day.</p>
     </section>
   </main>
 
   <section id="settings" class="settings" hidden>
-    <label>Theme
-      <select id="theme">
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-        <option value="sepia">Sepia</option>
-        <option value="midnight">Midnight</option>
-        <option value="forest">Forest</option>
-        <option value="cyberpunk">Cyberpunk</option>
+    <label>Theme <select id="theme"></select></label>
+    <label>Font <select id="font"></select></label>
+    <label>Text size
+      <select id="size">
+        <option value="small">Small</option>
+        <option value="medium">Medium</option>
+        <option value="large">Large</option>
       </select>
     </label>
-    <label>Font
-      <select id="font">
-        <option value="sans">Sans</option>
-        <option value="serif">Serif</option>
-        <option value="mono">Mono</option>
+    <label>Density
+      <select id="density">
+        <option value="compact">Compact</option>
+        <option value="comfy">Comfy</option>
+      </select>
+    </label>
+    <label>Corners
+      <select id="corners">
+        <option value="sharp">Sharp</option>
+        <option value="soft">Soft</option>
+        <option value="round">Round</option>
       </select>
     </label>
     <label>Animation
@@ -76,6 +87,15 @@
         <option value="arcade">Arcade (satisfying)</option>
       </select>
     </label>
+    <label>Animation length <span class="range-row"><input id="speed" type="range" min="0.5" max="2" step="0.05"><span id="speedVal"></span></span></label>
+    <label>Text cursor
+      <select id="caret">
+        <option value="default">Default</option>
+        <option value="coder">Coder (block)</option>
+        <option value="smooth">Smooth (glide)</option>
+      </select>
+    </label>
+    <label class="check"><input id="words" type="checkbox"> Random word prompts</label>
     <label>Accent
       <div class="accent-row">
         <input id="accent" type="color">
@@ -88,6 +108,26 @@
     </div>
   </section>
 
+  <section id="noteWin" class="note-win" hidden>
+    <div class="note-bar">
+      <span id="noteTitle"></span>
+      <button id="noteClose" aria-label="Close note">✕</button>
+    </div>
+    <div id="noteBody" class="note-body"></div>
+    <div class="note-add">
+      <button data-type="text">Text</button>
+      <button data-type="heading">Heading</button>
+      <button data-type="todo">To-do</button>
+      <button data-type="tracker">Tracker</button>
+      <button data-type="chart">Chart</button>
+      <button data-type="divider">Divider</button>
+    </div>
+  </section>
+
+  <script src="themes.js"></script>
+  <script src="caret.js"></script>
+  <script src="pong.js"></script>
+  <script src="notes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
